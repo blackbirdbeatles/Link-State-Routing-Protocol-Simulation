@@ -5,6 +5,10 @@
 #include <sstream>
 #include <string.h>
 #include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 using namespace std;
 class Manager {
