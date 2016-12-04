@@ -14,11 +14,20 @@ using namespace std;
 class Manager {
 public:
 	int makeRouters();
+	//calls sendPacketPath on routingCommands
+	int sendAllPackets();
 private:
 	Manager(ifstream& inFile);
 	vector<vector<int>> routingTable;
 	vector<vector<int>> routingCommands;
 	int numberOfRouters;
+	//may need more, just preliminary functions
+	//not sure which would be more useful for these two:
+	int sendToRouter();
+	int sendToRouter(const Router& route); 
+	//path is the vector of ints at [i] within routingCommands
+	int sendPacketPath(vector<int> path);
+	
 	//0 9 40
 	//0 4 60
 	//if routingTable[1] == RouterID or routingTable[0] == RouterID
@@ -31,7 +40,7 @@ private:
 
 class Router {
 	Router(const vector<vector<int>>& routingTable) {
-
+		//outdated code but useful comments
 		for (int j = 0; j < routingTable.size(); j++) {
 			//routingTable[0][0] == 0 = sendRouter
 			//routinngTable[0][1] == 9 = ReceiveRouter
