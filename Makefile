@@ -1,17 +1,19 @@
-all: manager
+all: manager router
 
-manager: Manager.o Router.o
-	g++ -Wall -std=c++11 -I. Manager.o Router.o -o manager
+manager: manager.o
+	g++ -Wall -std=c++11 -I. manager.o -o manager -pthread
 
-Manager.o: manager.cpp project3.h
-	g++ -Wall -std=c++11 -I. -c manager.cpp
+manager.o: manager.cpp project3.h
+	g++ -Wall -std=c++11 -I. -c manager.cpp -pthread
+	
+router: router.o
+	g++ -Wall -std=c++11 -I. router.o -o router
 
-Router.o: router.cpp project3.h
+router.o: router.cpp project3.h
 	g++ -Wall -std=c++11 -I. -c router.cpp
 
 clean:
-	rm -f *.o manager
+	rm -f *.o manager router
 
 tar:
-	tar -cvf manager.tar *.cpp *.h Makefile
-
+	tar -cvf P3.tar *.cpp *.h Makefile
