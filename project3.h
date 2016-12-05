@@ -6,6 +6,23 @@
 #include <string.h>
 #include <vector>
 
+#include <cstring>
+#include <map>
+#include <pthread.h>
+
+
+
+struct Args {
+	int arg1;
+	int arg2;
+	int arg3;
+};
+struct ResultUDPCreation{
+	int port;
+	int fd;
+};
+
+
 using namespace std;
 class Manager {
 public:
@@ -28,7 +45,7 @@ private:
 
 class Router {
 public:
-	Router(const vector<vector<int>>& routingTable) {
+	//Router(const vector<vector<int>>& routingTable) {
 
 	//	for (int j = 0; j < routingTable.size(); j++) {
 			//routingTable[0][0] == 0 = sendRouter
@@ -62,9 +79,10 @@ public:
 			//broadcast to 2 and 9: 4 7 70, 4 6 40
 			//broadcast from 9: 3 8 70, 3 5 70
 	//	}
-	}
+//	}
 
 
+	int dosometing();
 
 	int  sendToManager(const int fdTCP,string message);
 	int  connectToServer(const char* ip, const char* portNum);
@@ -73,23 +91,21 @@ public:
 	ResultUDPCreation  createUDPconnection();
 
 
-	void  LSP(vector<vector<int> >& neighborTable);
+	void  LSP(vector<vector<int> >& neighborTable, vector<vector<int> >& connectionTable, map<int,int>& nodeToPort);
 	int  receiveFromOneUDP(int fdUDP, int& sourceNode, string& message);
-	int  sendLocalhostUDP(int fdUDP, string message);
+	int sendToOneUDP(int fdUDP, int destNode, string message);
 
 
 
 
-	void  breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable);
+	void  breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable, map<int,int>& nodeToport);
 
 	int  sendToAllNeighbors(int fdUDP, string message);
-
-	int  receiveFromAllNeighbors(int fdUDP);
 	void  flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart);
 
 
 
-	void*  waitMsg(void* p);
+	//void*  waitMsg(void* p);
 
 	
 	
@@ -105,6 +121,7 @@ public:
 	int routerID;
 	//SPT will have the shortest path from A to B via C with total length D from A to B as <B, C, D>.  A is the routerID.
 	vector<vector<int>> SPT;
+	map<int,int> nodeToPort;
 
 };
 

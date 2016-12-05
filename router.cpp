@@ -1,22 +1,6 @@
 #include "project3.h"
-#include <iostream>
-#include <cstring>
-#include <string>
-#include <map>
-#include <vector>
-#include <pthread.h>
+
 using namespace std;
-
-
-
-struct Args {
-	int arg1;
-	int arg2;
-};
-struct ResultUDPCreation{
-	int port;
-	int fd;
-};
 
 
 int Router::routerPrint(string message) {
@@ -29,6 +13,8 @@ int Router::routerPrint(string message) {
 	routerFile << message << endl;
 	return 0;
 }
+
+/*
 
 int Router::buildSPT() {
 	//SPT will have the shortest path from A to B via C as <A, B, C>
@@ -122,33 +108,53 @@ int Router::buildSPT() {
 				}
 			}
 		}
-		availablePaths.resize();
+		//availablePaths.resize();
 	}
 }
+*/
+
+
+int Router::sendToManager(const int fdTCP,string message){
+
+};
+int Router::connectToServer(const char* ip, const char* portNum){
+
+};
+int Router::receiveFromManager(const int fdTCP, string message){
+
+};
 
 
 
-int Router::sendToManager(const int fdTCP,string message);
-int Router::connectToServer(const char* ip, const char* portNum);
-int Router::receiveFromManager(const int fdTCP, string message);
-int Router::receiveFromAllNeighbors(int fdUDP);
-ResultUDPCreation Router::createUDPconnection();
+
+int Router::receiveFromAllNeighbors(int fdUDP){
+
+};
+ResultUDPCreation Router::createUDPconnection(){
+	ResultUDPCreation r;
+	return r;
+
+};
 
 
-void Router::LSP(vector<vector<int> >& neighborTable){
+void Router::LSP(vector<vector<int> >& neighborTable,vector<vector<int> >& connectionTable, map<int,int>& nodeToPort ){
 
 }
 int Router::receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
 
 }
-int Router::sendLocalhostUDP(int fdUDP, string message){
+int Router::sendToOneUDP(int fdUDP, int destNode, string message){
 
 }
 
 
 
 
-void Router::breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable){
+
+void Router::breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable, map<int,int>& nodeToPort){
+
+}
+void Router::breakTestMessage(string message,int& source,int& dest){
 
 }
 
@@ -156,40 +162,43 @@ int Router::sendToAllNeighbors(int fdUDP, string message){
 
 }
 
-int Router::receiveFromAllNeighbors(int fdUDP){
 
-}
 void Router::flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart){
 
 }
 
 
 
-void* Router::waitMsg(void* p){
+void *waitMsg(void* p){
+	Router r;
 	string message;
 	int fdTCP = (*(Args*)p).arg1;
 	int fdUDP = (*(Args*)p).arg2;
+	int NodeID = fdUDP = (*(Args*)p).arg3;
 
 	message = "";
-	receiveFromManager(fdTCP, message);
+	r.receiveFromManager(fdTCP, message);
 	while (message != "-1"){
 
 
 
 		message = "";
-		receiveFromManager(fdTCP, message);
+		r.receiveFromManager(fdTCP, message);
 	}
-	sendLocalhostUDP(fdUDP, "-1");
-	return 0;
+	r.sendToOneUDP(fdUDP,NodeID, "-1");
+
 }
 
 
-int main(){
+
+int Router::dosometing(){
 	ResultUDPCreation r;
 	int fdUDP,portUDP;
 	r = createUDPconnection();
 	fdUDP = r.fd;
 	portUDP = r.port;
+	//~~~~~~~~~~~~~~~~~~
+	int ServerP = 5555;
 	int serverPort = ServerP;
 	int NodeAddr;
 	//Here are the variables may be transfered to Project3.h
@@ -201,7 +210,7 @@ int main(){
 	string message = "";
 	receiveFromManager(fdTCP, message);
 	//We need to figure out the format of the packet
-	breakTheMessageReceived(message, NodeAddr, neighborTable);
+	breakTheMessageReceived(message, NodeAddr, neighborTable, nodeToPort);
 	sendToManager(fdTCP, "Ready!");
 	message = "";
 	receiveFromManager(fdTCP, message);
@@ -214,23 +223,34 @@ int main(){
 		message = "";
 		receiveFromManager(fdTCP, message);
 		if (message == "Up"){
-			LSP(neighborTable);
-			BuildSPT(connectionTable);
+			LSP(neighborTable, connectionTable,nodeToPort);
+			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			//BuildSPT(connectionTable);
 			flowChartBuild(connectionTable, flowChart);
 			//Here we begin to test our flowChart
 			Args A;
 			A.arg1 = fdTCP;
 			A.arg2 = fdUDP;
+			A.arg3 = NodeAddr;
 			pthread_t listenTCP;
+			//~~~~~~
 			pthread_create(&listenTCP, NULL, &waitMsg, &A);
 			pthread_join(listenTCP, NULL);
 			message = "";
 			int sourceNode = -1;
 			receiveFromOneUDP(fdUDP, sourceNode, message);
 			while (message != "-1"){
-
-
-
+				int source, dest;
+				breakTestMessage(message, source, dest);
+				if (dest = NodeAddr)
+				{
+					routerPrint("I'm destination. I've already got the packet.");
+					sendToOneUDP(fdUDP,NodeAddr,"-1");
+				}
+				else{
+					routerPrint("I will forward this to " + to_string(flowChart[dest])+" now");
+					sendToOneUDP(fdUDP,flowChart[dest],message);
+				}
 				message = "";
 				receiveFromOneUDP(fdUDP, sourceNode, message);
 			}
@@ -243,6 +263,9 @@ int main(){
 		cerr << "Error: The following message expected: safe!" <<endl;
 		return -1;
 	}
+}
+int main(){
+	return 0;
 }
 
 
