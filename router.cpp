@@ -3,43 +3,21 @@
 #include <cstring>
 #include <string>
 #include <map>
+#include <vector>
+#include <pthread.h>
 using namespace std;
 
-int Router::sendToManager(const int fdTCP, string message);
-int Router::connectToServer(const char* ip, const char* portNum);
 
-int Router::receiveFromManager(const int fdTCP, string message) {
-	return 0;
-}
-int Router::receiveFromAllNeighbors(int fdUDP);
-int Router::createUDPconnection(const string portUDP);
 
-void Router::breakTheMessageReceived(string message, string& NodeAddr, map<string, int>& connectivityTable) {
+struct Args {
+	int arg1;
+	int arg2;
+};
+struct ResultUDPCreation{
+	int port;
+	int fd;
+};
 
-}
-
-int Router::sendToAllNeighbors(int fdUDP, string message) {
-	struct sockaddr_in dest;
-	dest = 0; //I guess?  I don't know what to do with this.
-	
-
-}
-
-int Router::receiveFromAllNeighbors(int fdUDP) {
-	//check to see if received message destination ID == this router ID.  If not, send it to neighbor that
-	//is next on the route to destination router
-}
-
-int Router::sendToOneRouter(int fdUDP, string message, struct sockaddr_in dest) {
-	// now with UDP datagram sockets:
-	//getaddrinfo(...
-	//dest = ...  // assume "dest" holds the address of the destination
-	//dgram_socket = socket(...
-
-	// send secret message normally:
-	//dest needs to be updated to be each neighbor
-	sendto(fdUDP, message.c_str(), strlen(message.c_str()) + 1, 0,(struct sockaddr*)&dest, sizeof dest);
-}
 
 int Router::routerPrint(string message) {
 	ofstream routerFile;
@@ -99,7 +77,7 @@ int Router::buildSPT() {
 		for (unsigned int i = 0; i < SPT.size(); i++) {
 			if (goingViaC == SPT[i][0]) {
 				goingViaC = SPT[i][1];
-				totalLengthD = totalLengthD + SPT[i][2]
+				totalLengthD = totalLengthD + SPT[i][2];
 				break;
 			}
 		}
@@ -148,47 +126,126 @@ int Router::buildSPT() {
 	}
 }
 
-int main() {
-	string portUDP = createUport();
-	string serverPort = ServerP;
-	string NodeAddr;
-	map<string, int> connectivityTable;
 
-	//Here is to make a TCP connection to manager
-	int fdTCP = connectToServer("127.0.0.1", serverPort.c_str());
-	//need to be implement
-	sendToManager(fdTCP, portUDP);
-	//clear message to avoid that it's original value affect the massage we just received
-	string message = "";
-	if (receiveFromManager(fdTCP, message) == 0) {
-		//We need to figure out the format of the packet
-		breakTheMessageReceived(message, NodeAddr, connectivityTable);
-		sendToManager(fdTCP, "Ready!");
-		message = "";
-		if (receiveFromManager(fdTCP, message) == 0) {
-			if (message == "It is safe to try to reach neighbors.") {
-				//Here we need to use UPD to send packets to neighbors
-				int fdUDP = createUDPconnection(portUDP);
-				sendToAllNeighbors(fdUDP, "#" + portUDP);
-				if (receiveFromAllNeighbors(fdUDP) == 0) {
-					sendToManager(fdTCP, "Complete");
-				}
-			}
-			else {
-				cerr << "Error: The following message expected: safe!" << endl;
-				return -1;
-			}
-		}
-		else {
-			cerr << "Error: Received From Manager for safe!" << endl;
-			return -1;
-		}
-	}
-	else {
-		cerr << "Error: Received From Manager for Node Addr Error!" << endl;
-		return -1;
-	}
 
+int Router::sendToManager(const int fdTCP,string message);
+int Router::connectToServer(const char* ip, const char* portNum);
+int Router::receiveFromManager(const int fdTCP, string message);
+int Router::receiveFromAllNeighbors(int fdUDP);
+ResultUDPCreation Router::createUDPconnection();
+
+
+void Router::LSP(vector<vector<int> >& neighborTable){
 
 }
+int Router::receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
+
+}
+int Router::sendLocalhostUDP(int fdUDP, string message){
+
+}
+
+
+
+
+void Router::breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable){
+
+}
+
+int Router::sendToAllNeighbors(int fdUDP, string message){
+
+}
+
+int Router::receiveFromAllNeighbors(int fdUDP){
+
+}
+void Router::flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart){
+
+}
+
+
+
+void* Router::waitMsg(void* p){
+	string message;
+	int fdTCP = (*(Args*)p).arg1;
+	int fdUDP = (*(Args*)p).arg2;
+
+	message = "";
+	receiveFromManager(fdTCP, message);
+	while (message != "-1"){
+
+
+
+		message = "";
+		receiveFromManager(fdTCP, message);
+	}
+	sendLocalhostUDP(fdUDP, "-1");
+	return 0;
+}
+
+
+int main(){
+	ResultUDPCreation r;
+	int fdUDP,portUDP;
+	r = createUDPconnection();
+	fdUDP = r.fd;
+	portUDP = r.port;
+	int serverPort = ServerP;
+	int NodeAddr;
+	//Here are the variables may be transfered to Project3.h
+	vector<vector<int> > connectionTable, neighborTable;
+	map<int, int> flowChart;
+	int fdTCP = connectToServer("127.0.0.1", to_string(serverPort).c_str());
+	sendToManager(fdTCP, to_string(portUDP));
+	//clear message to avoid that it's original value affect the massage we just received
+	string message = "";
+	receiveFromManager(fdTCP, message);
+	//We need to figure out the format of the packet
+	breakTheMessageReceived(message, NodeAddr, neighborTable);
+	sendToManager(fdTCP, "Ready!");
+	message = "";
+	receiveFromManager(fdTCP, message);
+	if (message == "It is safe to try to reach neighbors."){
+		//Here we need to use UPD to send packets to neighbors
+
+		sendToAllNeighbors(fdUDP, "#" + to_string(portUDP));
+		receiveFromAllNeighbors(fdUDP);
+		sendToManager(fdTCP, "Complete");
+		message = "";
+		receiveFromManager(fdTCP, message);
+		if (message == "Up"){
+			LSP(neighborTable);
+			BuildSPT(connectionTable);
+			flowChartBuild(connectionTable, flowChart);
+			//Here we begin to test our flowChart
+			Args A;
+			A.arg1 = fdTCP;
+			A.arg2 = fdUDP;
+			pthread_t listenTCP;
+			pthread_create(&listenTCP, NULL, &waitMsg, &A);
+			pthread_join(listenTCP, NULL);
+			message = "";
+			int sourceNode = -1;
+			receiveFromOneUDP(fdUDP, sourceNode, message);
+			while (message != "-1"){
+
+
+
+				message = "";
+				receiveFromOneUDP(fdUDP, sourceNode, message);
+			}
+			return 0;
+		};
+
+
+	}
+	else{
+		cerr << "Error: The following message expected: safe!" <<endl;
+		return -1;
+	}
+}
+
+
+
+
 
