@@ -5,29 +5,17 @@
 #include <sstream>
 #include <string.h>
 #include <vector>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
 
 using namespace std;
 class Manager {
 public:
-	int makeRouters();
-	//calls sendPacketPath on routingCommands
-	int sendAllPackets();
-private:
 	Manager(ifstream& inFile);
+	int makeRouters();
+private:
 	vector<vector<int>> routingTable;
 	vector<vector<int>> routingCommands;
 	int numberOfRouters;
-	//may need more, just preliminary functions
-	//not sure which would be more useful for these two:
-	int sendToRouter();
-	int sendToRouter(const Router& route); 
-	//path is the vector of ints at [i] within routingCommands
-	int sendPacketPath(vector<int> path);
-	
+	int managerPrint(string message);
 	//0 9 40
 	//0 4 60
 	//if routingTable[1] == RouterID or routingTable[0] == RouterID
@@ -39,8 +27,9 @@ private:
 };
 
 class Router {
+public:
 	Router(const vector<vector<int>>& routingTable) {
-		//outdated code but useful comments
+
 		for (int j = 0; j < routingTable.size(); j++) {
 			//routingTable[0][0] == 0 = sendRouter
 			//routinngTable[0][1] == 9 = ReceiveRouter
@@ -75,6 +64,32 @@ class Router {
 		}
 	}
 
+	int sendToManager(const int fdTCP, string message);
+	int connectToServer(const char* ip, const char* portNum);
+
+	int receiveFromManager(const int fdTCP, string message);
+	int receiveFromAllNeighbors(int fdUDP);
+	int createUDPconnection(const string portUDP);
+
+	void breakTheMessageReceived(string message, string& NodeAddr, map<string, int>& connectivityTable);
+	int sendToAllNeighbors(int fdUDP, string message);
+	int receiveFromAllNeighbors(int fdUDP);
+
+	int sendToOneRouter(int fdUDP, string message, struct sockaddr_in dest);
+
+	int routerPrint(string message);
+	int buildSPT();
+
+	//first contains its neighbors, then contains which neighbor it can send to to reach a specific node (created by Djikstra's
+	//after receiving all connectionTables)
+	//scratch the above, we're getting two tables
+	vector<vector<int>> connectionTable;
+	vector<vector<int>> neighborTable;
+	int routerID;
+	//SPT will have the shortest path from A to B via C with total length D from A to B as <B, C, D>.  A is the routerID.
+	vector<vector<int>> SPT;
+
 };
+
 
 #endif
