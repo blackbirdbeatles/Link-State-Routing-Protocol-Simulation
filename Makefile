@@ -7,10 +7,10 @@ manager.o: manager.cpp project3.h
 	g++ -Wall -std=c++11 -I. -c manager.cpp -pthread
 	
 router: router.o
-	g++ -Wall -std=c++11 -I. router.o -o router
+	g++ -Wall -std=c++11 -I. router.o -o router 
 
 router.o: router.cpp project3.h
-	g++ -Wall -std=c++11 -I. -c router.cpp
+	g++ -Wall -std=c++11 -I. -c router.cpp -pthread
 
 clean:
 	rm -f *.o manager router
