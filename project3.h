@@ -30,7 +30,7 @@ class Router {
 public:
 	Router(const vector<vector<int>>& routingTable) {
 
-		for (int j = 0; j < routingTable.size(); j++) {
+	//	for (int j = 0; j < routingTable.size(); j++) {
 			//routingTable[0][0] == 0 = sendRouter
 			//routinngTable[0][1] == 9 = ReceiveRouter
 			//routingTable[0][2] == 40 = cost
@@ -46,7 +46,7 @@ public:
 			//8: I'm by 3 (70), 1 (70), and 9 (70) but I'm asking them, too
 			//1: ok who are you by now
 			//8: I'm by 3 (70), 1 (70), and 9(70), and I can reach 0 by 9, 3 by 9, 5 by 9, and 7 by 9
-			
+
 			/*0 9 40
 				0 4 60
 				0 2 40*/
@@ -55,28 +55,45 @@ public:
 			//broadcast from 9: 3 9 20, 0 9 40, 5 9 70, 7 9 60, 8 9 70
 			//discard 0 9 40 repeat
 			//broadcast to 4 and 2: 3 9 20, 5 9 70, 7 9 60, 8 9 70
-			//broadcast from 2: 0 2 40 
+			//broadcast from 2: 0 2 40
 			//discard 0 2 40 repeat
 			//broadcast from 4: 0 4 60, 4 7 70, 4 6 40
 			//discard 0 4 60 repeat
 			//broadcast to 2 and 9: 4 7 70, 4 6 40
 			//broadcast from 9: 3 8 70, 3 5 70
-		}
+	//	}
 	}
 
-	int sendToManager(const int fdTCP, string message);
-	int connectToServer(const char* ip, const char* portNum);
 
-	int receiveFromManager(const int fdTCP, string message);
-	int receiveFromAllNeighbors(int fdUDP);
-	int createUDPconnection(const string portUDP);
 
-	void breakTheMessageReceived(string message, string& NodeAddr, map<string, int>& connectivityTable);
-	int sendToAllNeighbors(int fdUDP, string message);
-	int receiveFromAllNeighbors(int fdUDP);
+	int  sendToManager(const int fdTCP,string message);
+	int  connectToServer(const char* ip, const char* portNum);
+	int  receiveFromManager(const int fdTCP, string message);
+	int  receiveFromAllNeighbors(int fdUDP);
+	ResultUDPCreation  createUDPconnection();
 
-	int sendToOneRouter(int fdUDP, string message, struct sockaddr_in dest);
 
+	void  LSP(vector<vector<int> >& neighborTable);
+	int  receiveFromOneUDP(int fdUDP, int& sourceNode, string& message);
+	int  sendLocalhostUDP(int fdUDP, string message);
+
+
+
+
+	void  breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable);
+
+	int  sendToAllNeighbors(int fdUDP, string message);
+
+	int  receiveFromAllNeighbors(int fdUDP);
+	void  flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart);
+
+
+
+	void*  waitMsg(void* p);
+
+	
+	
+	
 	int routerPrint(string message);
 	int buildSPT();
 
