@@ -259,11 +259,6 @@ int connectToServer(){
 
 
 
-
-
-
-
-
 int receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
 
 }
@@ -288,6 +283,101 @@ int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable,
 
 	char* buff;
 
+	//dataLength and NodeAddr
+	int neighborNum = neighborTable.size();
+	uint16_t packetSize = sizeof(uint16_t) + neighborNum * (4 * sizeof(uint16_t));
+	buff = (char*) malloc(packetSize+1);
+	memcpy(buff,&packetSize, sizeof(uint16_t));
+
+	// neighborNum groups of "neighbor ,cost, port"
+	uint16_t offset = sizeof(uint16_t);
+	for (int i = 0; i <neighborNum; i++){
+		memcpy(buff+offset, &neighborTable[i][0], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int), &neighborTable[i][1], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*2, &neighborTable[i][2], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*3, &neighborTable[i][3], sizeof(int) );
+		offset += sizeof(int)*4;
+	}
+	buff[packetSize]=0;
+
+	//sleep to avoid congestion
+	sleep(1.5/NodeID);
+	if (sendto(fdUDP, buff, bufflen, 0, &si_other, slen)!=0)
+	{
+		cerr << "UDP send fail"<<endl;
+		exit(1);
+	}
+}
+
+
+int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID){
+
+	//Here is to define si_other
+	bufflen = 512;
+	struct sockaddr_in si_other;
+	int slen = sizeof(si_other);
+	memset((char *) &si_other, 0, sizeof(si_other));
+	si_other.sin_family = AF_INET;
+	si_other.sin_port = htons(nodeToPort[destNode]);
+	if (inet_aton(SRV_IP, &si_other.sin_addr)==0) {
+		cerr<<"inet_aton() failed\n";
+		exit(1);
+	}
+
+	char* buff;
+
+	//dataLength and NodeAddr
+	int neighborNum = neighborTable.size();
+	uint16_t packetSize = sizeof(uint16_t) + neighborNum * (4 * sizeof(uint16_t));
+	buff = (char*) malloc(packetSize+1);
+	memcpy(buff,&packetSize, sizeof(uint16_t));
+
+	// neighborNum groups of "neighbor ,cost, port"
+	uint16_t offset = sizeof(uint16_t);
+	for (int i = 0; i <neighborNum; i++){
+		memcpy(buff+offset, &neighborTable[i][0], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int), &neighborTable[i][1], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*2, &neighborTable[i][2], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*3, &neighborTable[i][3], sizeof(int) );
+		offset += sizeof(int)*4;
+	}
+	buff[packetSize]=0;
+
+	//sleep to avoid congestion
+	sleep(1.5/NodeID);
+	if (sendto(fdUDP, buff, bufflen, 0, &si_other, slen)!=0)
+	{
+		cerr << "UDP send fail"<<endl;
+		exit(1);
+	}
+}
+
+
+int ReceiveTableFromOne(int fdUDP, int destNode, vetor<vetor<int>>& connectionTable, map<int,int>& nodeToPort, int& NodeID){
+
+	//Here is to define si_other
+	bufflen = 512;
+	struct sockaddr_in si_other;
+	int fromlen;
+	char* buff;
+
+
+
+
+	recvfrom(fdUDP, buff, bufflen, 0, &si_other, &fromlen);
+	//
+	int packLen = memcpy(&packetSize, buff, sizeof(uint16_t));
+	cout << "packLen is: "<< packLen <<endl;
+	int neighborNum = (packLen - (sizeof(uint16_t)+ sizeof(int)))/(4 * sizeof(uint16_t));
+	cout << "neighborNum is" << neighborNum <<endl;
+	//Begin to extract message
+
+	memcpy(buff+sizeof(uint16_t), &NodeID, sizeof(int));
+
+
+
+
+	////////////////////////////////////////////////
 
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
@@ -299,30 +389,27 @@ int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable,
 	// neighborNum groups of "neighbor ,cost, port"
 	uint16_t offset = sizeof(uint16_t)+ sizeof(int);
 	for (int i = 0; i <neighborNum; i++){
-		memcpy(buff+offset, neighborNum)
+		memcpy(buff+offset, &neighborTable[i][0], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int), &neighborTable[i][1], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*2, &neighborTable[i][2], sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*3, &neighborTable[i][3], sizeof(int) );
+		offset += sizeof(int)*4;
 	}
+	buff[packetSize]=0;
 
-
-
-
-
-
+	//sleep to avoid congestion
 	sleep(1.5/NodeID);
-	sendto(fdUDP, buf, bufflen, 0, &si_other, slen);
-
-
-
-
-
+	if (sendto(fdUDP, buff, bufflen, 0, &si_other, slen)!=0)
+	{
+		cerr << "UDP send fail"<<endl;
+		exit(1);
+	}
 }
 
 
 
 
-int receiveFromManager(const int fdTCP, string message){
 
-
-};
 
 
 
@@ -345,9 +432,7 @@ void LSP(vector<vector<int> >& neighborTable,vector<vector<int> >& connectionTab
 void breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable, map<int,int>& nodeToPort){
 
 }
-void breakTestMessage(string message,int& source,int& dest){
 
-}
 
 int sendToAllNeighbors(int fdUDP, string message){
 
@@ -388,9 +473,6 @@ int main(){
 
 	sleep(1);
 	//Hardcode area  #begin#
-
-
-
 
 
 	//Hardcode area  #end#
