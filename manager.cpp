@@ -85,22 +85,35 @@ void sendMsg(int the_fd, long current){
 			cerr << "send error" << endl;
 			exit(1);
 		}
-		break;
+
 }
 
 
-//Need to add length field
-char* recieveMsg(int the_fd){
+uint32_t receivePortNum(int the_fd){
 	char* buff;
-	buff = (char*)malloc(2*sizeof(int)+1);
-	if((recv(the_fd, buff, 9, 0)) == -1){
+	uint32_t packageSize = sizeof(uint32_t)+sizeof(uint32_t);
+	buff = (char*)malloc(packageSize+1);
+	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
 		cerr << "recv error" << endl;
 		exit(1);
 	}
-	buff[8] = 0;
-	cout << "Manager: I receive the port Number in the process:  " << buff <<endl;
-	return buff;
+	buff[packageSize] = 0;
+	return *((uint32_t*)(buff+sizeof(uint32_t)));
 }
+
+char receiveCommand(int the_fd){
+	char* buff;
+	long packageSize = sizeof(char)+sizeof(char);
+	buff = (char*)malloc(packageSize+1);
+	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
+		cerr << "recv error" << endl;
+		exit(1);
+	}
+	buff[packageSize] = 0;
+	return *(buff+sizeof(char));
+}
+
+
 
 void *get_in_addr(struct sockaddr* sa){
 	if(sa -> sa_family == AF_INET){
@@ -179,14 +192,22 @@ int runServer(){
 		inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr*)&their_addr), s, sizeof s);
 		//cout << "Accepted connection " << count << endl;
 
-		char* newPort = recieveMsg(new_fd);
 		sendMsg(new_fd, count);
 
 		routerInfo currentRouter;
 		currentRouter.routerID = (long)count;
 		currentRouter.sockfd = (long)new_fd;
-		memcpy(&currentRouter.UDPsocket, newPort, 4);
-		cout << "The UDP portNum for " << currentRouter.routerID << " is " << *((int*)(newPort+4)) << endl;
+		uint32_t newPort = receivePortNum(new_fd);
+		cout << "The UDP portNum for " << currentRouter.routerID << " is " << newPort<< endl;
+
+
+		//~~~~From here it begins to just test the sending and receiving function
+		for (int i=0;i<4;i++){
+			 char c =receiveCommand(new_fd);
+			 cout << "The manager receive " << c <<endl;
+		}
+
+		//~~~~From here it  ends to just test the sending and receiving function
 		routers.push_back(currentRouter);
 		count++;
 	}

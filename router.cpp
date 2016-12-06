@@ -131,29 +131,29 @@ int buildSPT() {
 
 
 
-void sendPortNum(int the_fd, int port){
-	int p =port;
-	int sizeOfPacket = sizeof(int)+ sizeof(int);
+void sendPortNum(uint32_t the_fd, uint32_t port){
+	uint32_t sizeOfPacket = sizeof(uint32_t)+ sizeof(uint32_t);
 	//char* toSend;
 	//toSend = (char*)malloc(sizeOfPacket + 1);
 	char toSend[9];
-	memcpy(toSend, &sizeOfPacket,4);
-	memcpy(toSend + sizeof(int), &p, 4);
+	memcpy(toSend, &sizeOfPacket,sizeof(uint32_t));
+	memcpy(toSend + sizeof(uint32_t), &port, sizeof(uint32_t));
 	toSend[sizeOfPacket] = 0;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
 	}
 }
-void sendCommand(int the_fd, int port){
-	int p =port;
-	int sizeOfPacket = sizeof(int)+ sizeof(int);
+
+void sendCommand(int the_fd, char c){
+	char sizeOfPacket = sizeof(char)+ sizeof(char);
 	//char* toSend;
 	//toSend = (char*)malloc(sizeOfPacket + 1);
-	char toSend[9];
-	memcpy(toSend, &sizeOfPacket,4);
-	memcpy(toSend + sizeof(int), &p, 4);
+	char toSend[sizeOfPacket+1];
+	memcpy(toSend, &sizeOfPacket,1);
+	memcpy(toSend + 1, &c, 1);
 	toSend[sizeOfPacket] = 0;
+	cout<<"The one we should send is"<<*(toSend+1)<<endl;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
@@ -332,18 +332,25 @@ int main(){
 
 
 	int fdTCP = connectToServer();
-
 	ResultUDPCreation r;
 	int fdUDP,portUDP;
 	r = createUDPConnection();
 	fdUDP = r.fd;
 	portUDP = r.port;
-	cout << "fd is " <<r.fd<<endl;
-	cout << "port is " <<r.port<<endl;
 	int NodeAddr;
 	vector<vector<int> > connectionTable, neighborTable;
 	map<int, int> flowChart;
 	sendPortNum(fdTCP,portUDP);
+
+	// ~~~~~~~~~~Here is just for test sending package;
+	sendCommand(fdTCP, 'C');
+	sendCommand(fdTCP, 'R');
+
+	sendCommand(fdTCP, 'S');
+	sendCommand(fdTCP, 'U');
+
+	//~~~~~~~~~~~~~
+
 
 	/*
 
