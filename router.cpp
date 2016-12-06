@@ -114,13 +114,71 @@ int Router::buildSPT() {
 */
 
 
-int Router::sendToManager(const int fdTCP,string message){
+
+//这一群在Ben哪里有 begin
+
+void sendPortNum(int the_fd, long num){
+	int sizeOfPacket = sizeof(uint8_t)+ sizeof(long);
+	char buff[size];
+	char* toSend;
+	toSend = (char*)malloc(size);
+	memcpy(toSend, &size, sizeof(int));
+	memcpy(toSend + sizeof(int), &num, sizeof(long));
+	if(send(the_fd, toSend, size, 0) == -1){
+		cerr << "send error" << endl;
+	}
+}
+void sendCommand(int the_fd, char c){
+	char buff[sizeof(long)];
+	char* toSend;
+	toSend = (char*)malloc(sizeof(long));
+	memcpy(toSend, &num, sizeof(long));
+	if(send(the_fd, toSend, sizeof(long), 0) == -1){
+		cerr << "send error" << endl;
+	}
+}
+ResultUDPCreation Router::createUDPconnection(){
+	ResultUDPCreation r;
+	return r;
 
 };
-int Router::connectToServer(const char* ip, const char* portNum){
+//说的就是这群 end
+
+
+
+
+
+
+int Router::receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
+
+}
+int Router::sendToOneUDP(int fdUDP, int destNode, string message){
+
+}
+
+
+//This two are those key point for packing and unpacking
+/*
+int Router::sendToManager(const int fdTCP,string message, char flag){
+	switch (flag){
+		case 'P':
+			packAndSendP(fdTCP,message);
+			break;
+		case 'C':
+			packAndSendC(fdTCP,message);
+			break;
+
+	}
 
 };
+ */
+//这要从Ben那里拿过来
+void sendCommand(int fd, char c){
+
+}
+
 int Router::receiveFromManager(const int fdTCP, string message){
+
 
 };
 
@@ -130,22 +188,13 @@ int Router::receiveFromManager(const int fdTCP, string message){
 int Router::receiveFromAllNeighbors(int fdUDP){
 
 };
-ResultUDPCreation Router::createUDPconnection(){
-	ResultUDPCreation r;
-	return r;
 
-};
 
 
 void Router::LSP(vector<vector<int> >& neighborTable,vector<vector<int> >& connectionTable, map<int,int>& nodeToPort ){
 
 }
-int Router::receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
 
-}
-int Router::sendToOneUDP(int fdUDP, int destNode, string message){
-
-}
 
 
 
@@ -182,11 +231,13 @@ void *waitMsg(void* p){
 
 
 
+
+
+
 		message = "";
 		r.receiveFromManager(fdTCP, message);
 	}
 	r.sendToOneUDP(fdUDP,NodeID, "-1");
-
 }
 
 
@@ -198,20 +249,18 @@ int Router::dosometing(){
 	fdUDP = r.fd;
 	portUDP = r.port;
 	//~~~~~~~~~~~~~~~~~~
-	int ServerP = 5555;
-	int serverPort = ServerP;
 	int NodeAddr;
 	//Here are the variables may be transfered to Project3.h
 	vector<vector<int> > connectionTable, neighborTable;
 	map<int, int> flowChart;
 	int fdTCP = connectToServer("127.0.0.1", to_string(serverPort).c_str());
-	sendToManager(fdTCP, to_string(portUDP));
+	sendPortNum(fdTCP,portUDP);
 	//clear message to avoid that it's original value affect the massage we just received
 	string message = "";
 	receiveFromManager(fdTCP, message);
 	//We need to figure out the format of the packet
 	breakTheMessageReceived(message, NodeAddr, neighborTable, nodeToPort);
-	sendToManager(fdTCP, "Ready!");
+	sendCommand(fdTCP, 'R');
 	message = "";
 	receiveFromManager(fdTCP, message);
 	if (message == "It is safe to try to reach neighbors."){
@@ -219,7 +268,8 @@ int Router::dosometing(){
 
 		sendToAllNeighbors(fdUDP, "#" + to_string(portUDP));
 		receiveFromAllNeighbors(fdUDP);
-		sendToManager(fdTCP, "Complete");
+
+		sendCommand(fdTCP, 'C');
 		message = "";
 		receiveFromManager(fdTCP, message);
 		if (message == "Up"){
@@ -242,7 +292,7 @@ int Router::dosometing(){
 			while (message != "-1"){
 				int source, dest;
 				breakTestMessage(message, source, dest);
-				if (dest = NodeAddr)
+				if (dest == NodeAddr)
 				{
 					routerPrint("I'm destination. I've already got the packet.");
 					sendToOneUDP(fdUDP,NodeAddr,"-1");
@@ -265,6 +315,7 @@ int Router::dosometing(){
 	}
 }
 int main(){
+
 	return 0;
 }
 

@@ -99,6 +99,7 @@ public:
 
 
 	void  breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable, map<int,int>& nodeToport);
+	void  breakTestMessage(string message,int& source,int& dest);
 
 	int  sendToAllNeighbors(int fdUDP, string message);
 	void  flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart);
