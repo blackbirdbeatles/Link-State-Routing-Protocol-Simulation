@@ -22,7 +22,7 @@ int Router::buildSPT() {
 		}
 		//check what the path must be going toward and via and grab length of path
 		int goingToB;
-		int goingViaC;
+		int goingViaC, originalC;
 		int totalLengthD = availablePaths[chosenPath][2];
 		//if a route contains A then A is the via route; otherwise, figure out which is which
 		if (availablePaths[chosenPath][0] == routerID) {
@@ -48,12 +48,13 @@ int Router::buildSPT() {
 				}
 			}
 		}
+		originalC = goingViaC;
 		cout << goingToB << " " << goingViaC << endl;
 		//correct C to be the first node in the path to B and theoretically totalLength to the total instead of just new
 		for (unsigned int i = 0; i < SPT.size(); i++) {
 			if (goingViaC == SPT[i][0]) {
-				goingViaC = SPT[i][1];
-				totalLengthD = totalLengthD + SPT[i][2];
+				//goingViaC = SPT[i][1];
+				//totalLengthD = totalLengthD + SPT[i][2];
 				break;
 			}
 		}
@@ -61,11 +62,29 @@ int Router::buildSPT() {
 		//create the shortest path node
 		shortestPath.push_back(goingToB); shortestPath.push_back(goingViaC); shortestPath.push_back(totalLengthD);
 		SPT.push_back(shortestPath);
-		//grab the adjacency list for B and adds it to available paths
+		//grab the adjacency list for B and adds it to available paths, unless B and its path are already in there
 		for (unsigned int i = 0; i < connectionTable.size(); i++) {
-			if (connectionTable[i][0] == goingToB || connectionTable[i][1] == goingToB) {
+			bool containsA = false;
+			bool containsB = false;
+			bool containsC = false;
+			cout << "Add " << connectionTable[i][0] << " " << connectionTable[i][1] << " " << connectionTable[i][2] << endl;
+			for(unsigned int j = 0; j < SPT.size(); j++){
+				if(SPT[j][0] == connectionTable[i][0] || routerID == connectionTable[i][0])
+					containsA = true;
+				if(SPT[j][0] == connectionTable[i][1] || routerID == connectionTable[i][1])
+					containsB = true;
+			}
+			if(containsA && containsB){
+				containsC = true; 
+			}
+
+			if ((connectionTable[i][0] == goingToB || connectionTable[i][1] == goingToB) && !containsC) {
+				cout << "Yes" << endl;
+				connectionTable[i][2] = connectionTable[i][2] + shortestPath[2];
 				availablePaths.push_back(connectionTable[i]);
 			}
+			else{
+				cout << "No" << endl;}
 		}
 		cout << availablePaths.size() << endl;
 		//remove all available paths that are already reached by A in the SPT
@@ -98,17 +117,18 @@ int Router::buildSPT() {
 						containsSPTB = true;
 						cout << "Erasing: " << availablePaths[j][0] << " " << availablePaths[j][1] << " " << availablePaths[j][2] << endl;
 						availablePaths.erase(availablePaths.begin() + j);
+						i--;
+						j--;
 					}
 				}
 			}
 		}
-		cout << availablePaths.size() << endl;
-		cout << availablePaths[0][0] << " " << availablePaths[0][1] << " " << availablePaths[0][2] << endl;
-		cout << availablePaths[1][0] << " " << availablePaths[1][1] << " " << availablePaths[1][2] << endl;
-		cout << availablePaths[2][0] << " " << availablePaths[2][1] << " " << availablePaths[2][2] << endl;
-		cout << availablePaths[3][0] << " " << availablePaths[3][1] << " " << availablePaths[3][2] << endl;
+		//cout << availablePaths.size() << endl;
+		//cout << availablePaths[0][0] << " " << availablePaths[0][1] << " " << availablePaths[0][2] << endl;
+		//cout << availablePaths[1][0] << " " << availablePaths[1][1] << " " << availablePaths[1][2] << endl;
+		//cout << availablePaths[2][0] << " " << availablePaths[2][1] << " " << availablePaths[2][2] << endl;
+		//cout << availablePaths[3][0] << " " << availablePaths[3][1] << " " << availablePaths[3][2] << endl;
 
-		break;
 		//availablePaths.resize();
 	}
 }
