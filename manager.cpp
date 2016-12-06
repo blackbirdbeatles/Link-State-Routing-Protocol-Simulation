@@ -1,11 +1,12 @@
 #include "project3.h"
-
+#include <sstream>
 vector<vector<int>> routingTable;
 vector<vector<int>> routingCommands;
 int numberOfRouters;
 const char* ip;
 int sockfd, new_fd;
 vector<routerInfo> routers;
+ofstream outFile;
 
 void sigHandler(int signum){
 	cout << "Interrupt signal (" << signum << ") received.\n";
@@ -14,6 +15,10 @@ void sigHandler(int signum){
 	close(new_fd);
 	exit(signum);  
 
+}
+
+void writeToFile(string message){
+	outFile << message << "\n";
 }
 
 void readFile(ifstream& inFile){
@@ -73,7 +78,71 @@ void readFile(ifstream& inFile){
 		cout << "roundThrough: " << roundThrough << endl;
 	}
 	cout << "done" << endl;
+	//string outString = 
+	writeToFile("Finished reading input file.  ");
 }
+
+vector<vector<int>> buildNeighborTable(int routerNum){
+	vector<vector<int>> retTable;
+	for(unsigned int i=0; i<routingTable.size(); i++){
+		if(routingTable.at(i).at(0) == routerNum){
+			vector<int> tempVec;
+			int other = routingTable.at(i).at(1);
+			tempVec.push_back(routingTable.at(i).at(1));
+			tempVec.push_back(routingTable.at(i).at(2));
+			tempVec.push_back(routers.at(other).UDPsocket);
+			
+			retTable.push_back(tempVec);
+		}else if(routingTable.at(i).at(1) == routerNum){
+			vector<int> tempVec;
+			int other = routingTable.at(i).at(0);
+			tempVec.push_back(routingTable.at(i).at(0));
+			tempVec.push_back(routingTable.at(i).at(2));
+			tempVec.push_back(routers.at(other).UDPsocket);
+			
+			retTable.push_back(tempVec);
+		}
+	}
+	
+	return retTable;
+}
+
+char* packTable(vector<vector<int>> neighborTable){
+	char* buff;
+	buff = (char*)malloc((neighborTable.size() * 3) * sizeof(short) + 1);
+	
+	string tempstr = "";
+	
+	for(unsigned int i=0; i<neighborTable.size(); i++){
+		for(unsigned int j=0; j<neighborTable.at(i).size(); j++){
+			long temp = neighborTable.at(i).at(j);
+			memcpy(buff+(((i*3)+j) * 8), &temp, 8);
+		}
+	}
+	
+	//memset(buff + strlen(buff), 0, 1);
+	
+	return buff;
+}
+
+char* packRouterInfo(short routerNum, vector<vector<int>> neighborTable){
+	char* buff;
+	short length = (4 + (neighborTable.size() * 3) * 8);
+	
+	buff = (char*)malloc(length * sizeof(char));
+	memcpy(buff, &length, 2);
+	memcpy(buff+2, &routerNum, 2);
+	
+	char* table = packTable(neighborTable);
+	
+	memcpy(buff+4, table, length-4);
+	
+	cout << "length " << length << endl;
+	
+	return buff;
+}
+
+
 
 void sendMsg(int the_fd, long current){
 	while(1){
@@ -92,7 +161,6 @@ void sendMsg(int the_fd, long current){
 
 char* recieveMsg(int the_fd){
 	char* buff;
-
 	if((recv(the_fd, buff, 4, 0)) == -1){
 			cerr << "recv error" << endl;
 			exit(1);
@@ -186,6 +254,22 @@ int runServer(){
 		memcpy(&currentRouter.UDPsocket, newPort, 4);
 		cout << "The UDP portNum for " << currentRouter.routerID << " is " << currentRouter.UDPsocket << endl;
 		routers.push_back(currentRouter);
+		
+		//cout << "portnum before write" << to_string(currentRouter.routerID) << endl;
+		stringstream strsm;
+		strsm << currentRouter.UDPsocket;
+		string s;
+		strsm>>s;
+		writeToFile("Recieved UDP port number: " + s);
+		
+		stringstream ss;
+		ss << currentRouter.routerID;
+		string str;
+		ss >> str;
+		writeToFile("Sent ID and connectivity table to router " + str);
+		
+		
+		
 		count++;
 	}
 
@@ -193,6 +277,7 @@ int runServer(){
 }
 
 void * waitForConnections(void* a){
+	//writeToFile("Listening for connections on another thread");
 	runServer();
 	
 	return NULL;
@@ -201,6 +286,10 @@ void * waitForConnections(void* a){
 int main(int argc, char *argv[]){
 	if (argc == 2) {
 		ifstream inFile(argv[1]);
+		
+		outFile.open("manager.out");
+		writeToFile("Manager output.");
+		
 		readFile(inFile);
 		
 		pthread_t t1;
@@ -209,10 +298,15 @@ int main(int argc, char *argv[]){
 		for(int i=0; i<numberOfRouters; i++){
 			int status;
 			pid_t childPID = fork();
+			stringstream ss;
+			ss << childPID;
+			string str;
+			ss >> str;
+			writeToFile("Creating router process.  PID: " + str);
 			if(childPID >= 0){
 				// If childPID is 0, the fork succeeded. Execute the child program
 				if(childPID == 0){
-					status = execlp("router", NULL);
+					status = execvp("router", argv);
 				} else{
 					// If childPID is not 0, wait for it to finish, then print the exit status
 					wait(&status);
@@ -230,47 +324,33 @@ int main(int argc, char *argv[]){
 		cerr << "Wrong args, need 2 total" << endl;
 	}
 	
-	return 0;
+	outFile.close();
 	
 	
+	// Test code for building neighbor tables
+	vector<vector<int>> table = buildNeighborTable(2);
 	
-	
-	
-	
-	
-	/*if(argc != 2){
-		cout << "Put the right arguments, dumbass" << endl;
-		return -1;
-	}
-	
-	int test = atoi(argv[1]);
-	numRouters = test;
-	cout << "Starting Threads" << endl;
-	
-	pthread_t t1;
-	string s = to_string(test);
-	const char* temp = s.c_str();
-	pthread_create(&t1, NULL, &waitForConnections, (void*)temp);
-	
-	for(int i=0; i<test; i++){
-		int status;
-		pid_t childPID = fork();
-		if(childPID >= 0){
-			// If childPID is 0, the fork succeeded. Execute the child program
-			if(childPID == 0){
-				status = execlp("router", NULL);
-			} else{
-				// If childPID is not 0, wait for it to finish, then print the exit status
-				wait(&status);
-			}
-		} else{
-			// Error, failed to fork
-			cerr << "Failed to fork()";
-			exit(0);
+	for(unsigned int i=0; i<table.size(); i++){
+		for(unsigned int j=0; j<table.at(i).size(); j++){
+			cout << table.at(i).at(j) << " ";
 		}
+		cout << endl;
 	}
 	
-	pthread_join(t1, NULL);
+	for(unsigned int i=0; i<routers.size(); i++){
+		cout << routers.at(i).routerID << " " << routers.at(i).UDPsocket << endl;
+	}
 	
-	return 0;*/
+	char* buff = packRouterInfo(2, table);
+	
+	cout << strlen(buff) << endl;
+	
+	string str(buff);
+	
+	cout << str;
+	
+	cout << endl;
+	
+	return 0;
 }
+
