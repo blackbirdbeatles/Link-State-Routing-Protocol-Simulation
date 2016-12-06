@@ -94,12 +94,13 @@ void sendMsg(int the_fd, long current){
 //Need to add length field
 char* recieveMsg(int the_fd){
 	char* buff;
-	buff = (char*)malloc(sizeof(int));
-	if((recv(the_fd, buff, 4, 0)) == -1){
+	buff = (char*)malloc(sizeof(int)+1);
+	if((recv(the_fd, buff, 5, 0)) == -1){
 		cerr << "recv error" << endl;
 		exit(1);
 	}
-
+	buff[4] = 0;
+	cout << "Manager: I receive the port Number in the process:  " << buff <<endl;
 	return buff;
 }
 
@@ -117,6 +118,7 @@ int runServer(){
 	gethostname(hostName, sizeof hostName);
 	hostent* hostInfo = gethostbyname(hostName);
 	in_addr* hostIP = (in_addr*)hostInfo -> h_addr;
+	cout << "Here is host IP " << hostIP <<endl;
 
 	string res = inet_ntoa(*hostIP);
 
@@ -163,7 +165,7 @@ int runServer(){
 		exit(1);
 	}
 
-	if(listen(sockfd, 1) == -1){
+	if(listen(sockfd, 15) == -1){
 		cerr << "listen" << endl;
 		exit(1);
 	}
@@ -186,7 +188,7 @@ int runServer(){
 		currentRouter.routerID = (long)count;
 		currentRouter.sockfd = (long)new_fd;
 		memcpy(&currentRouter.UDPsocket, newPort, 4);
-		cout << "The UDP portNum for " << currentRouter.routerID << " is " << currentRouter.UDPsocket << endl;
+		cout << "The UDP portNum for " << currentRouter.routerID << " is " << newPort << endl;
 		routers.push_back(currentRouter);
 		count++;
 	}
