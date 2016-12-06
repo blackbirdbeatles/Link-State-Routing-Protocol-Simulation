@@ -117,8 +117,6 @@ int Router::buildSPT() {
 						containsSPTB = true;
 						cout << "Erasing: " << availablePaths[j][0] << " " << availablePaths[j][1] << " " << availablePaths[j][2] << endl;
 						availablePaths.erase(availablePaths.begin() + j);
-						i--;
-						j--;
 					}
 				}
 			}
