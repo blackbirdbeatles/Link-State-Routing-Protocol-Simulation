@@ -76,7 +76,6 @@ void readFile(ifstream& inFile){
 }
 
 void sendMsg(int the_fd, long current){
-	while(1){
 		char buff[sizeof(long)];
 		string check;
 		char* toSend;
@@ -87,19 +86,18 @@ void sendMsg(int the_fd, long current){
 			exit(1);
 		}
 		break;
-	}
 }
 
 
 //Need to add length field
 char* recieveMsg(int the_fd){
 	char* buff;
-	buff = (char*)malloc(sizeof(int)+1);
-	if((recv(the_fd, buff, 5, 0)) == -1){
+	buff = (char*)malloc(2*sizeof(int)+1);
+	if((recv(the_fd, buff, 9, 0)) == -1){
 		cerr << "recv error" << endl;
 		exit(1);
 	}
-	buff[4] = 0;
+	buff[8] = 0;
 	cout << "Manager: I receive the port Number in the process:  " << buff <<endl;
 	return buff;
 }
@@ -188,7 +186,7 @@ int runServer(){
 		currentRouter.routerID = (long)count;
 		currentRouter.sockfd = (long)new_fd;
 		memcpy(&currentRouter.UDPsocket, newPort, 4);
-		cout << "The UDP portNum for " << currentRouter.routerID << " is " << newPort << endl;
+		cout << "The UDP portNum for " << currentRouter.routerID << " is " << *((int*)(newPort+4)) << endl;
 		routers.push_back(currentRouter);
 		count++;
 	}

@@ -132,14 +132,28 @@ int buildSPT() {
 
 
 void sendPortNum(int the_fd, int port){
+	int p =port;
 	int sizeOfPacket = sizeof(int)+ sizeof(int);
-	cout << "sizeOfPacket: " <<sizeOfPacket<<endl;
-	char* toSend;
-	toSend = (char*)malloc(sizeOfPacket + 1);
+	//char* toSend;
+	//toSend = (char*)malloc(sizeOfPacket + 1);
+	char toSend[9];
 	memcpy(toSend, &sizeOfPacket,4);
-	memcpy(toSend + sizeof(int), &port, sizeof(int));
+	memcpy(toSend + sizeof(int), &p, 4);
 	toSend[sizeOfPacket] = 0;
-	cout << "sendPort has already sent:  "<<toSend <<endl;
+	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
+		cerr << "send error" << endl;
+		exit(-1);
+	}
+}
+void sendCommand(int the_fd, int port){
+	int p =port;
+	int sizeOfPacket = sizeof(int)+ sizeof(int);
+	//char* toSend;
+	//toSend = (char*)malloc(sizeOfPacket + 1);
+	char toSend[9];
+	memcpy(toSend, &sizeOfPacket,4);
+	memcpy(toSend + sizeof(int), &p, 4);
+	toSend[sizeOfPacket] = 0;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
