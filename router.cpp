@@ -7,22 +7,15 @@
 #include <cstring>
 #include <map>
 #include <pthread.h>
+#include <project3.h>
 
 
-
-struct Args {
-	int arg1;
-	int arg2;
-	int arg3;
-};
-struct ResultUDPCreation{
-	int port;
-	int fd;
-};
 
 using namespace std;
 
 
+
+/*
 int routerPrint(string message) {
 	ofstream routerFile;
 	string fileName = "router";
@@ -33,6 +26,7 @@ int routerPrint(string message) {
 	routerFile << message << endl;
 	return 0;
 }
+ */
 
 /*
 
@@ -135,34 +129,27 @@ int buildSPT() {
 
 
 
-//这一群在Ben哪里有 begin
 
-void sendPortNum(int the_fd, long num){
-	int sizeOfPacket = sizeof(uint8_t)+ sizeof(long);
-	char buff[size];
+
+void sendPortNum(int the_fd, int port){
+	int sizeOfPacket = sizeof(uint8_t)+ sizeof(int);
 	char* toSend;
-	toSend = (char*)malloc(size);
-	memcpy(toSend, &size, sizeof(int));
-	memcpy(toSend + sizeof(int), &num, sizeof(long));
-	if(send(the_fd, toSend, size, 0) == -1){
+	toSend = (char*)malloc(sizeOfPacket);
+	memcpy(toSend, &sizeOfPacket, sizeof(int));
+	memcpy(toSend + sizeof(int), &port, sizeof(int));
+	cout << "sendPort" <<endl;
+	if(send(the_fd, toSend, sizeOfPacket, 0) == -1){
 		cerr << "send error" << endl;
-	}
-}
-void sendCommand(int the_fd, char c){
-	char buff[sizeof(long)];
-	char* toSend;
-	toSend = (char*)malloc(sizeof(long));
-	memcpy(toSend, &num, sizeof(long));
-	if(send(the_fd, toSend, sizeof(long), 0) == -1){
-		cerr << "send error" << endl;
+		exit(-1);
 	}
 }
 
-ResultUPDCreation createUDPConnection(){
+
+ResultUDPCreation createUDPConnection(){
 	struct sockaddr_in addrinfo;
 	socklen_t addrlen = sizeof(addrinfo);
 	int sockfd;
-
+	int portNum;
 	while(1){
 		if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
 			cerr << "server: socket" << endl;
@@ -174,7 +161,7 @@ ResultUPDCreation createUDPConnection(){
 		addrinfo.sin_addr.s_addr = htons(INADDR_ANY);
 
 
-		if (bind(sockfd, (struct sockaddr *)&addrinfo, sizeof(addrinfo)) == -1) {
+		if (::bind(sockfd, (struct sockaddr *)&addrinfo, sizeof(addrinfo))==-1) {
 			cerr << "bind failed" << endl;
 			continue;
 		}
@@ -185,7 +172,7 @@ ResultUPDCreation createUDPConnection(){
 		break;
 	}
 
-	ResultUPDCreation result;
+	ResultUDPCreation result;
 	result.port = portNum;
 	result.fd = sockfd;
 	return result;
@@ -228,17 +215,10 @@ int connectToServer(){
 
 	cout << "Connected!" << endl;
 
-	managerfd = sockfd;
 
 	freeaddrinfo(serverInfo);
 
-	createUDPConnection();
-
-	sendPortNum(sockfd, (long)portNum);
-
-	recieveID(sockfd);
-
-	return 0;
+	return sockfd;
 }
 
 
@@ -298,14 +278,13 @@ void flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowCha
 
 
 void *waitMsg(void* p){
-	Router r;
 	string message;
 	int fdTCP = (*(Args*)p).arg1;
 	int fdUDP = (*(Args*)p).arg2;
 	int NodeID = fdUDP = (*(Args*)p).arg3;
 
 	message = "";
-	r.receiveFromManager(fdTCP, message);
+	receiveFromManager(fdTCP, message);
 	while (message != "-1"){
 
 
@@ -315,36 +294,70 @@ void *waitMsg(void* p){
 
 
 		message = "";
-		r.receiveFromManager(fdTCP, message);
+		receiveFromManager(fdTCP, message);
 	}
-	r.sendToOneUDP(fdUDP,NodeID, "-1");
+	sendToOneUDP(fdUDP,NodeID, "-1");
 }
 
 
 
 int main(){
+
+
+	//Hardcode area  #begin#
+
+
+
+
+
+	//Hardcode area  #end#
+
+	cout << "inside router main" << endl;
+
+
+	int fdTCP = connectToServer();
+
 	ResultUDPCreation r;
 	int fdUDP,portUDP;
-	r = createUDPconnection();
+	r = createUDPConnection();
 	fdUDP = r.fd;
 	portUDP = r.port;
-	//~~~~~~~~~~~~~~~~~~
+	cout << "fd is " <<r.fd<<endl;
+	cout << "port is " <<r.port<<endl;
 	int NodeAddr;
-	//Here are the variables may be transfered to Project3.h
 	vector<vector<int> > connectionTable, neighborTable;
 	map<int, int> flowChart;
-	int fdTCP = connectToServer();
 	sendPortNum(fdTCP,portUDP);
+
+	/*
+
+
+
 	//clear message to avoid that it's original value affect the massage we just received
 	string message = "";
-	receiveFromManager(fdTCP, message);
+	/////////The following 2 row is commented just for hardcode
+	//receiveFromManager(fdTCP, message);
+	//cout <<"NodeAddr, neighborTable, nodeToPort: " << message << endl;
 	//We need to figure out the format of the packet
-	breakTheMessageReceived(message, NodeAddr, neighborTable, nodeToPort);
+
+	/////////The following 1 row is commented just for hardcode
+	//breakTheMessageReceived(message, NodeAddr, neighborTable, nodeToPort);
+
+
+	/////////HardCode begin1
+	NodeAddr = 1;
+	vector<int> v;
+	v.push_back(1);
+	v.push_back(2);
+	v.push_back(10);
+	neighborTable.push_back(v);
+	/////////HardCode end1
+
+
 	sendCommand(fdTCP, 'R');
 	message = "";
 	receiveFromManager(fdTCP, message);
-	if (message == "It is safe to try to reach neighbors."){
-		//Here we need to use UPD to send packets to neighbors
+	if (message == "S"){   												// MEANS:  It is safe to try to reach neighbors.
 
 		sendToAllNeighbors(fdUDP, "#" + to_string(portUDP));
 		receiveFromAllNeighbors(fdUDP);
@@ -393,6 +406,9 @@ int main(){
 		cerr << "Error: The following message expected: safe!" <<endl;
 		return -1;
 	}
+
+	 */
+	return 0;
 }
 
 
