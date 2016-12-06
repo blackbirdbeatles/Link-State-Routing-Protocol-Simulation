@@ -113,6 +113,40 @@ char receiveCommand(int the_fd){
 	return *(buff+sizeof(char));
 }
 
+void sendTest(int the_fd, uint16_t source, uint16_t dest){
+	cout<<"what is the original one?  "<<(uint16_t)source<<"  "<<(uint16_t)dest<<endl;
+	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(uint16_t) +sizeof(uint16_t);
+	//char* toSend;
+	//toSend = (char*)malloc(sizeOfPacket + 1);
+	cout << "uint16_t   "<< sizeof(uint16_t)<<endl;
+	char toSend[7];
+	memcpy(toSend, &sizeOfPacket,sizeof(uint16_t));
+	memcpy(toSend + sizeof(uint16_t), &source, sizeof(uint16_t));
+	memcpy(toSend + sizeof(uint16_t)*2, &dest, sizeof(uint16_t));
+	toSend[sizeOfPacket] = 0;
+	cout << "Send Test" << toSend[0] << " "<<toSend[1] << " "<<toSend[2] <<endl;
+	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
+		cerr << "send error" << endl;
+		exit(-1);
+	}
+}
+void sendIDConnectTable(int the_fd, uint16_t source, uint16_t dest){
+	cout<<"what is the original one?  "<<(uint16_t)source<<"  "<<(uint16_t)dest<<endl;
+	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(uint16_t) +sizeof(uint16_t);
+	//char* toSend;
+	//toSend = (char*)malloc(sizeOfPacket + 1);
+	cout << "uint16_t   "<< sizeof(uint16_t)<<endl;
+	char toSend[7];
+	memcpy(toSend, &sizeOfPacket,sizeof(uint16_t));
+	memcpy(toSend + sizeof(uint16_t), &source, sizeof(uint16_t));
+	memcpy(toSend + sizeof(uint16_t)*2, &dest, sizeof(uint16_t));
+	toSend[sizeOfPacket] = 0;
+	cout << "Send Test" << toSend[0] << " "<<toSend[1] << " "<<toSend[2] <<endl;
+	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
+		cerr << "send error" << endl;
+		exit(-1);
+	}
+}
 
 
 void *get_in_addr(struct sockaddr* sa){
@@ -206,6 +240,9 @@ int runServer(){
 			 char c =receiveCommand(new_fd);
 			 cout << "The manager receive " << c <<endl;
 		}
+
+		sendTest(new_fd, (uint16_t)1, (uint16_t)0);
+		sendTest(new_fd, (uint16_t)0, (uint16_t)1);
 
 		//~~~~From here it  ends to just test the sending and receiving function
 		routers.push_back(currentRouter);

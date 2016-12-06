@@ -149,7 +149,7 @@ void sendCommand(int the_fd, char c){
 	char sizeOfPacket = sizeof(char)+ sizeof(char);
 	//char* toSend;
 	//toSend = (char*)malloc(sizeOfPacket + 1);
-	char toSend[sizeOfPacket+1];
+	char toSend[3];
 	memcpy(toSend, &sizeOfPacket,1);
 	memcpy(toSend + 1, &c, 1);
 	toSend[sizeOfPacket] = 0;
@@ -159,6 +159,27 @@ void sendCommand(int the_fd, char c){
 		exit(-1);
 	}
 }
+
+
+void receiveTest(int the_fd, uint16_t& source, uint16_t& dest){
+	char* buff;
+	uint16_t packageSize = sizeof(uint16_t)+sizeof(uint16_t)+sizeof(uint16_t);
+	buff = (char*)malloc(packageSize+1);
+	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
+		cerr << "recv error" << endl;
+		exit(1);
+	}
+	buff[packageSize] = 0;
+
+	//Give the source and dest
+	memcpy(&source,buff+ sizeof(uint16_t), sizeof(uint16_t));
+	memcpy(&dest, buff+sizeof(uint16_t)*2, sizeof(uint16_t));
+
+}
+
+
+
+
 
 
 ResultUDPCreation createUDPConnection(){
@@ -348,6 +369,13 @@ int main(){
 
 	sendCommand(fdTCP, 'S');
 	sendCommand(fdTCP, 'U');
+	for (int i =0 ;i <2;i++) {
+		uint16_t s,d;
+		receiveTest(fdTCP,s,d);
+		cout << "Source: " <<s<<"   Dest: "<<d<<endl;
+	}
+
+
 
 	//~~~~~~~~~~~~~
 
