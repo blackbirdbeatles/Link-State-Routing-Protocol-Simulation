@@ -69,7 +69,7 @@ int Router::buildSPT() {
 		}
 		//check what the path must be going toward and via and grab length of path
 		int goingToB;
-		int goingViaC;
+		int goingViaC, originalC;
 		int totalLengthD = availablePaths[chosenPath][2];
 		//if a route contains A then A is the via route; otherwise, figure out which is which
 		if (availablePaths[chosenPath][0] == routerID) {
@@ -97,56 +97,95 @@ int Router::buildSPT() {
 		}
 		//correct C to be the first node in the path to B and theoretically totalLength to the total instead of just new
 		for (unsigned int i = 0; i < SPT.size(); i++) {
-			if (goingViaC == SPT[i][0]) {
+			if ((goingViaC == SPT[i][0]) && SPT[i][1] != routerID) {
 				goingViaC = SPT[i][1];
-				totalLengthD = totalLengthD + SPT[i][2]
+				//totalLengthD = totalLengthD + SPT[i][2];
 				break;
 			}
 		}
 		//create the shortest path node
-		shortestPath.push_back(routerID); shortestPath.push_back(goingToB); shortestPath.push_back(goingViaC); shortestPath.push_back(totalLengthD);
+		shortestPath.push_back(goingToB); shortestPath.push_back(goingViaC); shortestPath.push_back(totalLengthD);
 		SPT.push_back(shortestPath);
-		//grab the adjacency list for B and adds it to available paths
+		//grab the adjacency list for B and adds it to available paths, unless B and its path are already in there
 		for (unsigned int i = 0; i < connectionTable.size(); i++) {
-			if (connectionTable[i][0] == goingToB || connectionTable[i][1] == goingToB) {
+			bool containsA = false;
+			bool containsB = false;
+			bool containsC = false;
+			//cout << "Add " << connectionTable[i][0] << " " << connectionTable[i][1] << " " << connectionTable[i][2] << endl;
+			for(unsigned int j = 0; j < SPT.size(); j++){
+				if(SPT[j][0] == connectionTable[i][0] || routerID == connectionTable[i][0])
+					containsA = true;
+				if(SPT[j][0] == connectionTable[i][1] || routerID == connectionTable[i][1])
+					containsB = true;
+			}
+			if(containsA && containsB){
+				containsC = true; 
+			}
+
+			if ((connectionTable[i][0] == goingToB || connectionTable[i][1] == goingToB) && !containsC) {
+				//cout << "Yes" << endl;
+				connectionTable[i][2] = connectionTable[i][2] + shortestPath[2];
 				availablePaths.push_back(connectionTable[i]);
 			}
+			else{
+				//cout << "No" << endl;}
 		}
 		//remove all available paths that are already reached by A in the SPT
-		//(if this code doesn't work, instead rebuild table using a temp table and clearing the original,
-		//only adding a path back in if it does not match both a previous destination and B)
+		vector<vector<int>> newPaths;
 		for (unsigned int j = 0; j < availablePaths.size(); j++) {
-			bool containsB;
-			bool containsA;
+			bool containsB = false;
+			bool containsA = false;
+			bool containsSPTB1 = false;
+			bool containsSPTB2 = false;
 			if (availablePaths[j][0] == goingToB || availablePaths[j][1] == goingToB) {
 				containsB = true;
 			}
 			if (availablePaths[j][0] == routerID || availablePaths[j][1] == routerID) {
 				containsA = true;
 			}
-			if (containsA && containsB) {
-				availablePaths.erase(availablePaths.begin() + j);
-			}
 			for (unsigned int i = 0; i < SPT.size(); i++) {
 				//we know what goingToB is and that that's now in the SPT, so if we check all the SPT Bs against 0 and 1
 				//using goingToB as the other value, we know if we've already reached both nodes in the connection and can remove it
 				//must also remove paths that contain both A and goingToB or A and SPT Bs
-				if ((containsA && containsB) || (!containsA && !containsB)) {
-					break;
-				}
-				else {
-					bool containsSPTB;
 					int SPTB = SPT[i][0];
-					if (availablePaths[j][0] == SPTB || availablePaths[j][1] == SPTB) {
-						containsSPTB = true;
-						availablePaths.erase(availablePaths.begin() + j);
+					if ((availablePaths[j][0] == SPTB || availablePaths[j][1] == SPTB) && containsSPTB1 == false) {
+						containsSPTB1 = true;
+						//cout << "Erasing: " << availablePaths[j][0] << " " << availablePaths[j][1] << " " << availablePaths[j][2] << endl;
+						//availablePaths.erase(availablePaths.begin() + j);
 					}
-				}
+					else if((availablePaths[j][0] == SPTB || availablePaths[j][1] == SPTB) && containsSPTB1 == true){
+						containsSPTB2 = true;
+					}
+			}
+			//add the path to new paths if either of its paths is not in the SPT
+			//so if containsSPTB2 is false and if containsA or containsSPTB1 is false
+			if(!containsSPTB2 && (!containsA || !containsSPTB1)){
+				newPaths.push_back(availablePaths[j]);
 			}
 		}
-		availablePaths.resize();
+		availablePaths = newPaths;
 	}
 }
+
+int main() {
+	Router r;
+	r.routerID = 0;
+	vector<int> A{0, 1, 50};
+	vector<int> B{0, 3, 20};
+	vector<int> C{1, 2, 20};
+	vector<int> D{1, 3, 40};
+	vector<int> E{4, 3, 30};
+	vector<int> F{5, 2, 20};
+	r.connectionTable.push_back(A); r.connectionTable.push_back(B); r.connectionTable.push_back(C);
+	r.connectionTable.push_back(D); r.connectionTable.push_back(E); r.connectionTable.push_back(F);
+	r.neighborTable.push_back(A); r.neighborTable.push_back(B);
+	r.buildSPT();
+	for(int i = 0; i < r.SPT.size(); i++){
+		cout << r.SPT[i][0] << " " << r.SPT[i][1] << " " << r.SPT[i][2] << endl; 
+	}
+
+}
+
 
 int main() {
 	string portUDP = createUport();
