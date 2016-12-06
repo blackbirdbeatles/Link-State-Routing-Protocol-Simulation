@@ -1,9 +1,29 @@
-#include "project3.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string.h>
+#include <vector>
+
+#include <cstring>
+#include <map>
+#include <pthread.h>
+
+
+
+struct Args {
+	int arg1;
+	int arg2;
+	int arg3;
+};
+struct ResultUDPCreation{
+	int port;
+	int fd;
+};
 
 using namespace std;
 
 
-int Router::routerPrint(string message) {
+int routerPrint(string message) {
 	ofstream routerFile;
 	string fileName = "router";
 	string ID = to_string(routerID);
@@ -16,7 +36,7 @@ int Router::routerPrint(string message) {
 
 /*
 
-int Router::buildSPT() {
+int buildSPT() {
 	//SPT will have the shortest path from A to B via C as <A, B, C>
 	vector<vector<int>> availablePaths = neighborTable;
 	while (availablePaths.size() != 0) {
@@ -137,61 +157,120 @@ void sendCommand(int the_fd, char c){
 		cerr << "send error" << endl;
 	}
 }
-ResultUDPCreation Router::createUDPconnection(){
-	ResultUDPCreation r;
-	return r;
 
-};
-//说的就是这群 end
+ResultUPDCreation createUDPConnection(){
+	struct sockaddr_in addrinfo;
+	socklen_t addrlen = sizeof(addrinfo);
+	int sockfd;
 
+	while(1){
+		if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
+			cerr << "server: socket" << endl;
+			continue;
+		}
 
-
-
-
-
-int Router::receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
-
-}
-int Router::sendToOneUDP(int fdUDP, int destNode, string message){
-
-}
+		memset((char *)&addrinfo, 0, sizeof(addrinfo));
+		addrinfo.sin_family = AF_INET;
+		addrinfo.sin_addr.s_addr = htons(INADDR_ANY);
 
 
-//This two are those key point for packing and unpacking
-/*
-int Router::sendToManager(const int fdTCP,string message, char flag){
-	switch (flag){
-		case 'P':
-			packAndSendP(fdTCP,message);
-			break;
-		case 'C':
-			packAndSendC(fdTCP,message);
-			break;
+		if (bind(sockfd, (struct sockaddr *)&addrinfo, sizeof(addrinfo)) == -1) {
+			cerr << "bind failed" << endl;
+			continue;
+		}
 
+		getsockname(sockfd, (struct sockaddr *)&addrinfo, &addrlen);
+		portNum = ntohs(addrinfo.sin_port);
+		cout << "Router side UDP port num: " << portNum << endl;
+		break;
 	}
 
+	ResultUPDCreation result;
+	result.port = portNum;
+	result.fd = sockfd;
+	return result;
+}
+
+int connectToServer(){
+	struct addrinfo hints, *serverInfo, *p;
+	int retVal;
+	int sockfd;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+
+	if((retVal = getaddrinfo("127.0.0.1", PORT, &hints, &serverInfo)) != 0){
+		cerr << "getaddrinfo: " << gai_strerror(retVal) << endl;
+		return -1;
+	}
+
+	for(p=serverInfo; p!=NULL; p=p->ai_next){
+		if((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1){
+			cerr << "client: socket" << endl;
+			continue;
+		}
+
+		if(connect(sockfd, p->ai_addr, p->ai_addrlen) == -1){
+			close(sockfd);
+			perror("client: connect");
+			continue;
+		}
+
+		cout << "Connecting... ";
+		break;
+	}
+
+	if(p == NULL){
+		cerr << "client: failed to connect" << endl;
+		return -1;
+	}
+
+	cout << "Connected!" << endl;
+
+	managerfd = sockfd;
+
+	freeaddrinfo(serverInfo);
+
+	createUDPConnection();
+
+	sendPortNum(sockfd, (long)portNum);
+
+	recieveID(sockfd);
+
+	return 0;
+}
+
+
+
+
+
+
+int receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
+
+}
+int sendToOneUDP(int fdUDP, int destNode, string message){
+
+}
+
+
+
+
+int receiveFromManager(const int fdTCP, string message){
+
+
 };
- */
-//这要从Ben那里拿过来
-void sendCommand(int fd, char c){
 
-}
 
-int Router::receiveFromManager(const int fdTCP, string message){
 
+
+int receiveFromAllNeighbors(int fdUDP){
 
 };
 
 
 
-
-int Router::receiveFromAllNeighbors(int fdUDP){
-
-};
-
-
-
-void Router::LSP(vector<vector<int> >& neighborTable,vector<vector<int> >& connectionTable, map<int,int>& nodeToPort ){
+void LSP(vector<vector<int> >& neighborTable,vector<vector<int> >& connectionTable, map<int,int>& nodeToPort ){
 
 }
 
@@ -200,19 +279,19 @@ void Router::LSP(vector<vector<int> >& neighborTable,vector<vector<int> >& conne
 
 
 
-void Router::breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable, map<int,int>& nodeToPort){
+void breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable, map<int,int>& nodeToPort){
 
 }
-void Router::breakTestMessage(string message,int& source,int& dest){
-
-}
-
-int Router::sendToAllNeighbors(int fdUDP, string message){
+void breakTestMessage(string message,int& source,int& dest){
 
 }
 
+int sendToAllNeighbors(int fdUDP, string message){
 
-void Router::flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart){
+}
+
+
+void flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart){
 
 }
 
@@ -234,6 +313,7 @@ void *waitMsg(void* p){
 
 
 
+
 		message = "";
 		r.receiveFromManager(fdTCP, message);
 	}
@@ -242,7 +322,7 @@ void *waitMsg(void* p){
 
 
 
-int Router::dosometing(){
+int main(){
 	ResultUDPCreation r;
 	int fdUDP,portUDP;
 	r = createUDPconnection();
@@ -253,7 +333,7 @@ int Router::dosometing(){
 	//Here are the variables may be transfered to Project3.h
 	vector<vector<int> > connectionTable, neighborTable;
 	map<int, int> flowChart;
-	int fdTCP = connectToServer("127.0.0.1", to_string(serverPort).c_str());
+	int fdTCP = connectToServer();
 	sendPortNum(fdTCP,portUDP);
 	//clear message to avoid that it's original value affect the massage we just received
 	string message = "";
@@ -314,10 +394,7 @@ int Router::dosometing(){
 		return -1;
 	}
 }
-int main(){
 
-	return 0;
-}
 
 
 
