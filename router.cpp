@@ -179,9 +179,6 @@ void receiveTest(int the_fd, uint16_t& source, uint16_t& dest){
 
 
 
-
-
-
 ResultUDPCreation createUDPConnection(){
 	struct sockaddr_in addrinfo;
 	socklen_t addrlen = sizeof(addrinfo);
@@ -263,10 +260,59 @@ int connectToServer(){
 
 
 
+
+
+
+
 int receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
 
 }
-int sendToOneUDP(int fdUDP, int destNode, string message){
+
+
+int sendToOneUDPCommand(int NodeID){
+
+}
+int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID){
+
+	//Here is to define si_other
+	bufflen = 512;
+	struct sockaddr_in si_other;
+	int slen = sizeof(si_other);
+	memset((char *) &si_other, 0, sizeof(si_other));
+	si_other.sin_family = AF_INET;
+	si_other.sin_port = htons(nodeToPort[destNode]);
+	if (inet_aton(SRV_IP, &si_other.sin_addr)==0) {
+		cerr<<"inet_aton() failed\n";
+		exit(1);
+	}
+
+	char* buff;
+
+
+	//dataLength and NodeAddr
+	int neighborNum = neighborTable.size();
+	uint16_t packetSize = sizeof(uint16_t)+ sizeof(int) + neighborNum * (4 * sizeof(uint16_t));
+	buff = (char*) malloc(packetSize+1);
+	memcpy(buff,&packetSize, sizeof(uint16_t));
+	memcpy(buff+sizeof(uint16_t), &NodeID, sizeof(int));
+
+	// neighborNum groups of "neighbor ,cost, port"
+	uint16_t offset = sizeof(uint16_t)+ sizeof(int);
+	for (int i = 0; i <neighborNum; i++){
+		memcpy(buff+offset, neighborNum)
+	}
+
+
+
+
+
+
+	sleep(1.5/NodeID);
+	sendto(fdUDP, buf, bufflen, 0, &si_other, slen);
+
+
+
+
 
 }
 
