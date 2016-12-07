@@ -132,8 +132,19 @@ void sendTest(int the_fd, uint16_t source, uint16_t dest){
 }
 
 
-void getNeighborTableSet(vector<vector<int>>& connectionTable, int nodeID, vector<vector<int>>& neighborTableSet){
+void getNeighborTableSet(vector<vector<int>>& connectionTable, int nodeID, int RouterNum, vector<vector<int>>& neighborTableSet){
 
+	//Go through the whole connectionTable read from input file, build the direct neighbor Table of each node
+
+	for (int i=0; i <connectionTable.size(); i++){
+		neighborTableSet[connectionTable[i][0]].push_pack(connectionTable[i]);
+		vector<int> reverseEdge = connectionTable[i];
+		int t;
+		t = reverseEdge[0];
+		reverseEdge[0] = reverseEdge[1];
+		reverseEdge[1] = t;
+		neighborTableSet[connectionTable[i][1]].push_pack(reverseEdge);
+	}
 }
 
 
@@ -276,7 +287,7 @@ int runServer(){
 		for (int i = 0; i < numberOfRouters; i++)
 			neighborTableSet.push_back(tmp2);
 
-		getNeighborTableSet(connectionTable, nodeID, neighborTableSet);
+		getNeighborTableSet(connectionTable, nodeID, numberOfRouters, neighborTableSet);
 		sendIDAndConnectionTable(new_fd, neighborTable);
 		//~~~~From here it  ends to just test the sending and receiving function
 		routers.push_back(currentRouter);
