@@ -1,6 +1,6 @@
 #include "project3.h"
 
-vector<vector<int>> routingTable;
+vector<vector<int>> connectionTable;
 vector<vector<int>> routingCommands;
 int numberOfRouters;
 const char* ip;
@@ -46,7 +46,7 @@ void readFile(ifstream& inFile){
 			}
 			if(!moveOn){
 				cout << "Router Connection: " << routerConnection[0] << " " << routerConnection[1] << " " << routerConnection[2] << endl;
-				routingTable.push_back(routerConnection);
+				connectionTable.push_back(routerConnection);
 			}
 		}
 		else if(grouping == 2){
@@ -130,21 +130,41 @@ void sendTest(int the_fd, uint16_t source, uint16_t dest){
 		exit(-1);
 	}
 }
-void sendIDConnectTable(int the_fd, uint16_t source, uint16_t dest){
-	cout<<"what is the original one?  "<<(uint16_t)source<<"  "<<(uint16_t)dest<<endl;
-	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(uint16_t) +sizeof(uint16_t);
-	//char* toSend;
-	//toSend = (char*)malloc(sizeOfPacket + 1);
-	cout << "uint16_t   "<< sizeof(uint16_t)<<endl;
-	char toSend[7];
-	memcpy(toSend, &sizeOfPacket,sizeof(uint16_t));
-	memcpy(toSend + sizeof(uint16_t), &source, sizeof(uint16_t));
-	memcpy(toSend + sizeof(uint16_t)*2, &dest, sizeof(uint16_t));
-	toSend[sizeOfPacket] = 0;
-	cout << "Send Test" << toSend[0] << " "<<toSend[1] << " "<<toSend[2] <<endl;
-	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
-		cerr << "send error" << endl;
-		exit(-1);
+
+
+void getNeighborTableSet(vector<vector<int>>& connectionTable, int nodeID, vector<vector<int>>& neighborTableSet){
+
+}
+
+
+int sendIDAndConnectionTable(int fdTCP, vector<vector<int>>& neighborTable){
+
+	char* toSend;
+
+	//dataLength and NodeAddr
+	int neighborNum = neighborTable.size();
+	uint16_t packetSize = sizeof(uint16_t)+ neighborNum * (4 * sizeof(uint16_t));
+	toSend = (char*) malloc(packetSize+1);
+	memcpy(toSend,&packetSize, sizeof(uint16_t));
+
+	// neighborNum groups of "neighbor ,cost, port"
+	uint16_t offset = sizeof(uint16_t);
+	for (int i = 0; i <neighborNum; i++){
+		int source = neighborTable[i][0];
+		int dest = neighborTable[i][1];
+		int cost = neighborTable[i][2];
+		int port = neighborTable[i][3];
+		memcpy(buff+offset, &source, sizeof(int) );
+		memcpy(buff+offset+ sizeof(int), &dest, sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*2, &cost, sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*3, &port, sizeof(int) );
+		offset += sizeof(int)*4;
+	}
+	buff[packetSize]=0;
+	if (send(fdTCP, toSend, packetSize+1, 0)!=0)
+	{
+		cerr << "TCP send table fail"<<endl;
+		exit(1);
 	}
 }
 
@@ -244,6 +264,20 @@ int runServer(){
 		sendTest(new_fd, (uint16_t)1, (uint16_t)0);
 		sendTest(new_fd, (uint16_t)0, (uint16_t)1);
 
+		//test send connectionTable
+		int nodeID = count;
+
+
+			//initialize the neighborTableSet
+
+		vector<vector<vector<int> > > neighborTableSet;
+		vector<int> tmp;
+		vector<vector<int> > tmp2;
+		for (int i = 0; i < numberOfRouters; i++)
+			neighborTableSet.push_back(tmp2);
+
+		getNeighborTableSet(connectionTable, nodeID, neighborTableSet);
+		sendIDAndConnectionTable(new_fd, neighborTable);
 		//~~~~From here it  ends to just test the sending and receiving function
 		routers.push_back(currentRouter);
 		count++;

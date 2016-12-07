@@ -146,12 +146,12 @@ void sendPortNum(uint32_t the_fd, uint32_t port){
 }
 
 void sendCommand(int the_fd, char c){
-	char sizeOfPacket = sizeof(char)+ sizeof(char);
+	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(char);
 	//char* toSend;
 	//toSend = (char*)malloc(sizeOfPacket + 1);
-	char toSend[3];
-	memcpy(toSend, &sizeOfPacket,1);
-	memcpy(toSend + 1, &c, 1);
+	char toSend[4];
+	memcpy(toSend, &sizeOfPacket,2);
+	memcpy(toSend + 2, &c, 1);
 	toSend[sizeOfPacket] = 0;
 	cout<<"The one we should send is"<<*(toSend+1)<<endl;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
@@ -264,19 +264,19 @@ int receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
 }
 
 
-int sendToOneUDPCommand(int NodeID){
+int sendToOneUDPCommand(int fdUDP, int NodeID, char c ){
 
 }
-int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID){
+int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID){
 
 	//Here is to define si_other
-	bufflen = 512;
+	int bufflen = 512;
 	struct sockaddr_in si_other;
-	int slen = sizeof(si_other);
+	socklen_t slen = sizeof(si_other);
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
 	si_other.sin_port = htons(nodeToPort[destNode]);
-	if (inet_aton(SRV_IP, &si_other.sin_addr)==0) {
+	if (inet_aton("127.0,0,1", &si_other.sin_addr)!=0) {
 		cerr<<"inet_aton() failed\n";
 		exit(1);
 	}
@@ -285,24 +285,28 @@ int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable,
 
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
-	uint16_t packetSize = sizeof(uint16_t) + neighborNum * (4 * sizeof(uint16_t));
-	buff = (char*) malloc(packetSize+1);
+	uint16_t packetSize = sizeof(uint16_t)+ neighborNum * (4 * sizeof(uint16_t));
+	buff = (char*) malloc(bufflen);
 	memcpy(buff,&packetSize, sizeof(uint16_t));
 
 	// neighborNum groups of "neighbor ,cost, port"
 	uint16_t offset = sizeof(uint16_t);
 	for (int i = 0; i <neighborNum; i++){
-		memcpy(buff+offset, &neighborTable[i][0], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int), &neighborTable[i][1], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*2, &neighborTable[i][2], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*3, &neighborTable[i][3], sizeof(int) );
+		int source = neighborTable[i][0];
+		int dest = neighborTable[i][1];
+		int cost = neighborTable[i][2];
+		int port = neighborTable[i][3];
+		memcpy(buff+offset, &source, sizeof(int) );
+		memcpy(buff+offset+ sizeof(int), &dest, sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*2, &cost, sizeof(int) );
+		memcpy(buff+offset+ sizeof(int)*3, &port, sizeof(int) );
 		offset += sizeof(int)*4;
 	}
 	buff[packetSize]=0;
 
 	//sleep to avoid congestion
 	sleep(1.5/NodeID);
-	if (sendto(fdUDP, buff, bufflen, 0, &si_other, slen)!=0)
+	if (sendto(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, slen)!=0)
 	{
 		cerr << "UDP send fail"<<endl;
 		exit(1);
@@ -310,100 +314,41 @@ int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable,
 }
 
 
-int sendToOneUDPTable(int fdUDP, int destNode, vetor<vetor<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID){
+int ReceiveUDPTableFromOne(int fdUDP, vector<vector<int>>& connectionTable){
 
 	//Here is to define si_other
-	bufflen = 512;
+	uint16_t packetSize;
+	int bufflen = 512;
 	struct sockaddr_in si_other;
-	int slen = sizeof(si_other);
-	memset((char *) &si_other, 0, sizeof(si_other));
-	si_other.sin_family = AF_INET;
-	si_other.sin_port = htons(nodeToPort[destNode]);
-	if (inet_aton(SRV_IP, &si_other.sin_addr)==0) {
-		cerr<<"inet_aton() failed\n";
-		exit(1);
-	}
-
+	socklen_t fromlen;
 	char* buff;
+	buff = (char*) malloc(bufflen);
 
-	//dataLength and NodeAddr
-	int neighborNum = neighborTable.size();
-	uint16_t packetSize = sizeof(uint16_t) + neighborNum * (4 * sizeof(uint16_t));
-	buff = (char*) malloc(packetSize+1);
-	memcpy(buff,&packetSize, sizeof(uint16_t));
-
-	// neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t);
-	for (int i = 0; i <neighborNum; i++){
-		memcpy(buff+offset, &neighborTable[i][0], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int), &neighborTable[i][1], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*2, &neighborTable[i][2], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*3, &neighborTable[i][3], sizeof(int) );
-		offset += sizeof(int)*4;
-	}
-	buff[packetSize]=0;
-
-	//sleep to avoid congestion
-	sleep(1.5/NodeID);
-	if (sendto(fdUDP, buff, bufflen, 0, &si_other, slen)!=0)
-	{
-		cerr << "UDP send fail"<<endl;
-		exit(1);
-	}
-}
-
-
-int ReceiveTableFromOne(int fdUDP, int destNode, vetor<vetor<int>>& connectionTable, map<int,int>& nodeToPort, int& NodeID){
-
-	//Here is to define si_other
-	bufflen = 512;
-	struct sockaddr_in si_other;
-	int fromlen;
-	char* buff;
-
-
-
-
-	recvfrom(fdUDP, buff, bufflen, 0, &si_other, &fromlen);
+	recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 	//
-	int packLen = memcpy(&packetSize, buff, sizeof(uint16_t));
-	cout << "packLen is: "<< packLen <<endl;
-	int neighborNum = (packLen - (sizeof(uint16_t)+ sizeof(int)))/(4 * sizeof(uint16_t));
+	memcpy(&packetSize, buff, sizeof(uint16_t));
+	cout << "packetSize is: "<< packetSize <<endl;
+	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int)))/(4 * sizeof(uint16_t));
 	cout << "neighborNum is" << neighborNum <<endl;
-	//Begin to extract message
-
-	memcpy(buff+sizeof(uint16_t), &NodeID, sizeof(int));
 
 
-
-
-	////////////////////////////////////////////////
-
-	//dataLength and NodeAddr
-	int neighborNum = neighborTable.size();
-	uint16_t packetSize = sizeof(uint16_t)+ sizeof(int) + neighborNum * (4 * sizeof(uint16_t));
-	buff = (char*) malloc(packetSize+1);
-	memcpy(buff,&packetSize, sizeof(uint16_t));
-	memcpy(buff+sizeof(uint16_t), &NodeID, sizeof(int));
-
-	// neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t)+ sizeof(int);
+	// extract neighborNum groups of "neighbor ,cost, port"
+	uint16_t offset = sizeof(uint16_t);
 	for (int i = 0; i <neighborNum; i++){
-		memcpy(buff+offset, &neighborTable[i][0], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int), &neighborTable[i][1], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*2, &neighborTable[i][2], sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*3, &neighborTable[i][3], sizeof(int) );
+		int source, dest, cost, port;
+		memcpy(&source,buff+offset, sizeof(int) );
+		memcpy(&dest,buff+offset+ sizeof(int),  sizeof(int) );
+		memcpy(&cost,buff+offset+ sizeof(int)*2,  sizeof(int) );
+		memcpy(&port,buff+offset+ sizeof(int)*3,sizeof(int) );
 		offset += sizeof(int)*4;
+		vector<int> tempt;
+		connectionTable.push_back(tempt);
+		connectionTable.at(i).push_back(source);
+		connectionTable.at(i).push_back(dest);
+		connectionTable.at(i).push_back(cost);
+		connectionTable.at(i).push_back(port);
 	}
-	buff[packetSize]=0;
 
-	//sleep to avoid congestion
-	sleep(1.5/NodeID);
-	if (sendto(fdUDP, buff, bufflen, 0, &si_other, slen)!=0)
-	{
-		cerr << "UDP send fail"<<endl;
-		exit(1);
-	}
 }
 
 
@@ -444,7 +389,7 @@ void flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowCha
 }
 
 
-
+/*
 void *waitMsg(void* p){
 	string message;
 	int fdTCP = (*(Args*)p).arg1;
@@ -452,9 +397,11 @@ void *waitMsg(void* p){
 	int NodeID = fdUDP = (*(Args*)p).arg3;
 
 	message = "";
-	receiveFromManager(fdTCP, message);
+	uint16_t source,dest;
+	//其实这里需要一个模糊的消息接受
+	receiveTest(fdTCP, source, dest);
 	while (message != "-1"){
-
+		sendToOneUDPTable();
 
 
 
@@ -462,11 +409,11 @@ void *waitMsg(void* p){
 
 
 		message = "";
-		receiveFromManager(fdTCP, message);
+		receiveTest(fdTCP, source, dest);
 	}
-	sendToOneUDP(fdUDP,NodeID, "-1");
+	sendToOneUDPCommand(fdUDP, NodeID,'E');
 }
-
+*/
 
 
 int main(){
@@ -503,6 +450,31 @@ int main(){
 		cout << "Source: " <<s<<"   Dest: "<<d<<endl;
 	}
 
+
+
+
+
+	map<int,int> nodeToPort;
+
+
+	struct sockaddr_in si_other;
+	socklen_t fromlen;
+	char buff[10];
+
+	sendPortNum(fdTCP,portUDP);
+	recvfrom(fdUDP, buff, 10, 0, (struct sockaddr*)&si_other, &fromlen);
+	cout << map[0];
+	cout <<map[1];
+
+	int sourceNode;
+	sendToOneUDPTable(fdUDP, NodeAddr, neighborTable, nodeToPort, NodeAddr);
+	ReceiveUDPTableFromOne(fdUDP, connectionTable);
+
+	for (int i = 0; i < connectionTable.size(); i++){
+		for (int j =0; j <connectionTable[i].size();j++)
+			cout << connectionTable[i][j];
+		cout<<endl;
+	}
 
 
 	//~~~~~~~~~~~~~
@@ -561,13 +533,13 @@ int main(){
 			message = "";
 			int sourceNode = -1;
 			receiveFromOneUDP(fdUDP, sourceNode, message);
-			while (message != "-1"){
+			while (message != 'E'){
 				int source, dest;
 				breakTestMessage(message, source, dest);
 				if (dest == NodeAddr)
 				{
 					routerPrint("I'm destination. I've already got the packet.");
-					sendToOneUDP(fdUDP,NodeAddr,"-1");
+					sendToOneUDP(fdUDP,NodeAddr,'E');
 				}
 				else{
 					routerPrint("I will forward this to " + to_string(flowChart[dest])+" now");
