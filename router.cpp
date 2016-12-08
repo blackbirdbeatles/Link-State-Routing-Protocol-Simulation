@@ -24,19 +24,21 @@ ofstream outfile;
 int numberOfRouters;
 vector<int> checkACK, checkOtherID;
 map<int, int> nodeToPort;
+vector<int> checkSource;
 
 
-
-/*
-
-int buildSPT() {
+vector<vector<int>> buildSPT(const vector<vector<int>>& neighborTable, vector<vector<int>> connectionTable ) {
 	//SPT will have the shortest path from A to B via C as <A, B, C>
+	outfile << "Constructing Shortest Path Tree..." << endl;
 	vector<vector<int>> availablePaths = neighborTable;
+	vector<vector<int>> SPT;
+	outfile << "Initial number of paths to choose from: " << availablePaths.size() << endl;
 	while (availablePaths.size() != 0) {
 		int chosenPath = -1;
 		int smallestLength = -1;
 		vector<int> shortestPath;
-		//find the shortest available path 
+		//find the shortest available path
+		outfile << "Choosing shortest path..." << endl;
 		for (unsigned int i = 0; i < availablePaths.size(); i++) {
 			int Length = availablePaths[i][2];
 			if (Length < smallestLength || smallestLength == -1) {
@@ -44,20 +46,20 @@ int buildSPT() {
 				chosenPath = i;
 			}
 		}
+		outfile << "Successful!  Path is <" << availablePaths[chosenPath][0] << ", " << availablePaths[chosenPath][1] << ", " << availablePaths[chosenPath][2] << ">"
+		<< endl;
 		//check what the path must be going toward and via and grab length of path
 		int goingToB;
-		int goingViaC;
+		int goingViaC, originalC;
 		int totalLengthD = availablePaths[chosenPath][2];
 		//if a route contains A then A is the via route; otherwise, figure out which is which
 		if (availablePaths[chosenPath][0] == routerID) {
 			goingViaC = routerID;
 			goingToB = availablePaths[chosenPath][1];
-		}
-		else if (availablePaths[chosenPath][1] == routerID) {
+		} else if (availablePaths[chosenPath][1] == routerID) {
 			goingViaC = routerID;
 			goingToB = availablePaths[chosenPath][0];
-		}
-		else {
+		} else {
 			for (unsigned int i = 0; i < SPT.size(); i++) {
 				//the already taken value must be the new via
 				if (SPT[i][0] == availablePaths[chosenPath][0]) {
@@ -65,66 +67,102 @@ int buildSPT() {
 					goingViaC = availablePaths[chosenPath][0];
 					goingToB = availablePaths[chosenPath][1];
 					break;
-				}
-				else {
+				} else {
 					goingViaC = availablePaths[chosenPath][1];
 					goingToB = availablePaths[chosenPath][0];
 				}
 			}
 		}
 		//correct C to be the first node in the path to B and theoretically totalLength to the total instead of just new
+		outfile << "Finding via route for root to dest..." << endl;
 		for (unsigned int i = 0; i < SPT.size(); i++) {
-			if (goingViaC == SPT[i][0]) {
+			if ((goingViaC == SPT[i][0]) && SPT[i][1] != routerID) {
 				goingViaC = SPT[i][1];
-				totalLengthD = totalLengthD + SPT[i][2];
+
+				//totalLengthD = totalLengthD + SPT[i][2];
 				break;
 			}
 		}
+		if(goingViaC == routerID){
+			goingViaC = goingToB;
+		}
+		outfile << "Found! To reach " << goingToB << " send to " << goingViaC << "." << endl;
+		outfile << "Total cost to reach " << goingToB << " is " << totalLengthD << "." << endl;
 		//create the shortest path node
-		shortestPath.push_back(routerID); shortestPath.push_back(goingToB); shortestPath.push_back(goingViaC); shortestPath.push_back(totalLengthD);
+		shortestPath.push_back(goingToB);
+		shortestPath.push_back(goingViaC);
+		shortestPath.push_back(totalLengthD);
 		SPT.push_back(shortestPath);
-		//grab the adjacency list for B and adds it to available paths
+		//grab the adjacency list for B and adds it to available paths, unless B and its path are already in there
+		outfile << "Finding new available paths..." << endl;
 		for (unsigned int i = 0; i < connectionTable.size(); i++) {
-			if (connectionTable[i][0] == goingToB || connectionTable[i][1] == goingToB) {
+			bool containsA = false;
+			bool containsB = false;
+			bool containsC = false;
+			//outfile << "Add " << connectionTable[i][0] << " " << connectionTable[i][1] << " " << connectionTable[i][2] << endl;
+			for (unsigned int j = 0; j < SPT.size(); j++) {
+				if (SPT[j][0] == connectionTable[i][0] || routerID == connectionTable[i][0])
+					containsA = true;
+				if (SPT[j][0] == connectionTable[i][1] || routerID == connectionTable[i][1])
+					containsB = true;
+			}
+			if (containsA && containsB) {
+				containsC = true;
+			}
+
+			if ((connectionTable[i][0] == goingToB || connectionTable[i][1] == goingToB) && !containsC) {
+				//outfile << "Yes" << endl;
+				connectionTable[i][2] = connectionTable[i][2] + shortestPath[2];
 				availablePaths.push_back(connectionTable[i]);
+			} else {
+				//outfile << "No" << endl;
 			}
 		}
 		//remove all available paths that are already reached by A in the SPT
-		//(if this code doesn't work, instead rebuild table using a temp table and clearing the original,
-		//only adding a path back in if it does not match both a previous destination and B)
+		vector<vector<int>> newPaths;
+		outfile << "Removing redundancies..." << endl;
 		for (unsigned int j = 0; j < availablePaths.size(); j++) {
-			bool containsB;
-			bool containsA;
+			bool containsB = false;
+			bool containsA = false;
+			bool containsSPTB1 = false;
+			bool containsSPTB2 = false;
 			if (availablePaths[j][0] == goingToB || availablePaths[j][1] == goingToB) {
 				containsB = true;
 			}
 			if (availablePaths[j][0] == routerID || availablePaths[j][1] == routerID) {
 				containsA = true;
 			}
-			if (containsA && containsB) {
-				availablePaths.erase(availablePaths.begin() + j);
-			}
 			for (unsigned int i = 0; i < SPT.size(); i++) {
 				//we know what goingToB is and that that's now in the SPT, so if we check all the SPT Bs against 0 and 1
 				//using goingToB as the other value, we know if we've already reached both nodes in the connection and can remove it
 				//must also remove paths that contain both A and goingToB or A and SPT Bs
-				if ((containsA && containsB) || (!containsA && !containsB)) {
-					break;
-				}
-				else {
-					bool containsSPTB;
-					int SPTB = SPT[i][0];
-					if (availablePaths[j][0] == SPTB || availablePaths[j][1] == SPTB) {
-						containsSPTB = true;
-						availablePaths.erase(availablePaths.begin() + j);
-					}
+				int SPTB = SPT[i][0];
+				if ((availablePaths[j][0] == SPTB || availablePaths[j][1] == SPTB) && containsSPTB1 == false) {
+					containsSPTB1 = true;
+					//outfile << "Erasing: " << availablePaths[j][0] << " " << availablePaths[j][1] << " " << availablePaths[j][2] << endl;
+					//availablePaths.erase(availablePaths.begin() + j);
+				} else if ((availablePaths[j][0] == SPTB || availablePaths[j][1] == SPTB) &&
+						   containsSPTB1 == true) {
+					containsSPTB2 = true;
 				}
 			}
+			//add the path to new paths if either of its paths is not in the SPT
+			//so if containsSPTB2 is false and if containsA or containsSPTB1 is false
+			if (!containsSPTB2 && (!containsA || !containsSPTB1)) {
+				newPaths.push_back(availablePaths[j]);
+			}
 		}
-		//availablePaths.resize();
+		availablePaths = newPaths;
+		outfile << "Done! Number of paths to choose from: " << availablePaths.size() << endl;
 	}
+	outfile << "Shortest Path Tree construction complete. <Destination, Via, Distance> paths:" << endl;
+	for (unsigned int i = 0; i < SPT.size(); i++) {
+		outfile << "<" << SPT[i][0] << ", " << SPT[i][1] << ", " << SPT[i][2] << "> ";
+	}
+	outfile << endl;
+	return SPT;
 }
-*/
+
 
 
 void buildNodeToPort(map<int, int>& nodeToPort,vector<vector<int>>& neighborTable ){
@@ -231,7 +269,6 @@ int receiveIDAndConnectionTable(int fdTCP, int &ID, vector<vector<int>>& neighbo
 
 
 
-
 ResultUDPCreation createUDPConnection(){
 	struct sockaddr_in addrinfo;
 	socklen_t addrlen = sizeof(addrinfo);
@@ -325,6 +362,13 @@ void checkOther(vector<int>& l){
 	}
 }
 
+void checkS(vector<int>& l){
+	int sum = 0;
+	for (int i = 0; i < checkSource.size(); i++){
+		if (checkSource[i]==0)
+			l.push_back(i);
+	}
+}
 
 
 
@@ -363,8 +407,42 @@ int sendToOneUDPCommand(int fdUDP, int32_t destNode, char flag, int32_t myID){
 
 }
 
-int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID){
 
+
+int sendBuffTo(int fdUDP,  int destNode, char* buff,int NodeID){
+
+//	cout << "A" << endl;
+	//sleep to avoid congestion
+	usleep(NodeID*1000);
+
+	//Here is to define si_other
+	int bufflen = 512;
+	struct sockaddr_in si_other;
+	socklen_t slen = sizeof(si_other);
+	memset((char *) &si_other, 0, sizeof(si_other));
+//	cout << "A" << endl;
+//	outfile<<"  1   "<<endl;
+	si_other.sin_family = AF_INET;
+	si_other.sin_port = htons(nodeToPort[destNode]);
+	if (inet_aton("127.0,0,1", &si_other.sin_addr)!=0) {
+		cerr<<"inet_aton() failed\n";
+		exit(1);
+	}
+//	outfile<<"  2   "<<endl;
+
+
+	memcpy(buff+ sizeof(uint16_t)+ sizeof(int32_t), &NodeID, sizeof(int32_t)); //From who
+//	outfile<<"  3  "<<endl;
+	if (sendto(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, slen)==-1)
+	{
+		cerr << "UDP forwarding send fail"<<endl;
+		exit(1);
+	}
+//	outfile<<"  4   "<<endl;
+	return 0;
+}
+
+int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID, int fromID){
 	//sleep to avoid congestion
 	sleep(NodeID/10);
 
@@ -384,14 +462,14 @@ int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTabl
 
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
-	uint16_t packetSize = sizeof(uint16_t)+sizeof(int32_t)+ neighborNum * (4 * sizeof(int32_t));
+	uint16_t packetSize = sizeof(uint16_t)+sizeof(int32_t)+sizeof(int32_t)+ neighborNum * (4 * sizeof(int32_t));
 	buff = (char*) malloc(bufflen);
 	memcpy(buff,&packetSize, sizeof(uint16_t));
 	memcpy(buff+ sizeof(uint16_t), &NodeID, sizeof(int32_t));
+	memcpy(buff+ sizeof(uint16_t)+ sizeof(int32_t), &fromID, sizeof(int32_t)); //From who
 	// neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t);
+	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t)*2;
 	for (int i = 0; i <neighborNum; i++){
-		cout << "From ID" << NodeID <<" offset now is: "<<offset<<endl;
 		int32_t source = neighborTable[i][0];
 		int32_t dest = neighborTable[i][1];
 		int32_t cost = neighborTable[i][2];
@@ -411,31 +489,41 @@ int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTabl
 		cerr << "UDP send fail"<<endl;
 		exit(1);
 	}
+	return 0;
 }
 
 
-int ReceiveFromOneUDPTable(int fdUDP, vector<vector<int>>& connectionTable, int32_t& fromID){
+char* ReceiveFromOneUDPTable(int fdUDP, vector<vector<int>>& connectionTable, int32_t& fromID, int& r){
 	outfile << "Here comes to receive an UDP packet from a direct neighbor" <<endl;
 	//Here is to define si_other
 	uint16_t packetSize;
+	int sourceID;
 	int bufflen = 512;
 	struct sockaddr_in si_other;
 	socklen_t fromlen;
 	char* buff;
 	buff = (char*) malloc(bufflen+1);
-
 	recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 	//
 	memcpy(&packetSize, buff, sizeof(uint16_t));
-	memcpy(&fromID, buff+sizeof(uint16_t), sizeof(int32_t));
+	memcpy(&sourceID, buff+ sizeof(uint16_t), sizeof(int32_t));
+	memcpy(&fromID, buff+sizeof(uint16_t)+ sizeof(int32_t), sizeof(int32_t));
+	if (checkSource[sourceID] == 1) {
+		r = -1;
+		return buff;
+	}
+	else
+		checkSource[sourceID] = 1;
+
 	outfile << "packet Size is: "<< packetSize <<endl;
 	outfile << "From ID is: "<< fromID <<endl;
-	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int32_t)))/(4 * sizeof(int32_t));
+	outfile << "Source ID: " << sourceID << endl;
+	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int32_t)+ sizeof(int32_t)))/(4 * sizeof(int32_t));
 	outfile << "neighborNum is " << neighborNum <<endl;
 
 
 	// extract neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t);
+	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t)+ sizeof(int32_t);
 	for (int i = 0; i <neighborNum; i++){
 		int32_t source, dest, cost, port;
 		memcpy(&source,buff+offset, sizeof(int32_t) );
@@ -450,7 +538,8 @@ int ReceiveFromOneUDPTable(int fdUDP, vector<vector<int>>& connectionTable, int3
 		tempt.push_back(port);
 		connectionTable.push_back(tempt);
 	}
-
+	r=0;
+	return buff;
 }
 
 
@@ -610,22 +699,19 @@ int main() {
 			checkACK[neighborTable[i][1]] = 0;
 			checkOtherID[neighborTable[i][1]] = 0;
 		}
-//		cout << "NODE: " << NodeAddr << endl;
-//		for (int i = 0; i<numberOfRouters;i++) {
-//			cout<<"ID "<<i<<" "<<checkOtherID[i]<<" "<<checkACK[i]<<endl;
-//		}
+
+
 		ArPth ar;
 		ar.sock=fdUDP;
 		ar.id = NodeAddr;
 		pthread_t checkFull;
 		pthread_create(&checkFull, NULL, &checkFullStatus, &ar);
 		//begin to listen
-		//Here need to packet explainanation:      												char + fromID
+		//packet explainanation:      												char + fromID
 		vector<int> emptyA, emptyI;
 		checkA(emptyA);
 		checkOther(emptyI);
 		while ((!emptyA.empty()) || (!emptyI.empty()) ){
-//			cout << "Received: " << NodeAddr << endl;
 			recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 
 			int32_t fromID;
@@ -645,7 +731,55 @@ int main() {
 			checkA(emptyA);
 			checkOther(emptyI);
 		}
+		//A thread to send extra packet to prevent packet loss to some extend
 		pthread_join(checkFull,NULL);
+		sendCommand(fdTCP, 'C');     //"Complete!"
+		c = receiveCommand(fdTCP);
+		if (c == 'U'){				//"Network is up now!"
+
+			//initialize source neighbor whose table already get
+			for (int i = 0; i<numberOfRouters;i++)
+				checkSource.push_back(0);
+			checkSource[NodeAddr]=1;
+
+
+
+			//Perform the flooding algorithm
+			for (int i = 0; i < neighborTable.size();i++)
+				sendToOneUDPTable(fdUDP, neighborTable[i][1], neighborTable,nodeToPort,neighborTable[i][0],neighborTable[i][0]);
+			vector<int> emptyS;
+			checkS(emptyS);
+			connectionTable = neighborTable;
+			while(!emptyS.empty()){
+				int32_t fromID;
+				char* pbuff;
+				int r;
+				pbuff = ReceiveFromOneUDPTable(fdUDP, connectionTable, fromID,r);
+				if (r==0) {
+					//forwarding
+
+					for (int j = 0; j < neighborTable.size(); j++) {
+						if (neighborTable[j][1] != fromID) {
+							sendBuffTo(fdUDP, neighborTable[j][1], pbuff, NodeAddr);
+						}
+					}
+
+				}
+				else
+					//discard
+					outfile << "Discard table from Router " << fromID <<endl;
+				emptyS.clear();
+				checkS(emptyS);
+			}
+			outfile<<"For router "<<NodeAddr<<", connection size = "<< connectionTable.size()<<endl;
+			//print out the connectionTable
+			for (int j = 0; j < connectionTable.size(); j++) {
+				outfile << connectionTable[j][0] << "  " << connectionTable[j][1] << "  " <<
+				connectionTable[j][2] << "  " << connectionTable[j][3] << endl;
+			}
+		}
+		else
+			cout << "unexpected message" <<endl;
 
 
 
@@ -660,18 +794,7 @@ int main() {
 
 
 
-		//LSP
-		for (int i = 0; i < neighborTable.size();i++)
-			sendToOneUDPTable(fdUDP, neighborTable[i][1], neighborTable,nodeToPort,neighborTable[i][0]);
-		for (int i = 0; i < neighborTable.size();i++){
-			int32_t fromID;
-			ReceiveFromOneUDPTable(fdUDP, connectionTable, fromID);
-			outfile << "Done the receiving UDP table from node "<< fromID<<endl;
-			//print out the connectionTable get
-			for (int j=0; j<connectionTable.size(); j++){
-				outfile <<connectionTable[j][0] << "  " << connectionTable[j][1] << "  " << connectionTable[j][2] << "  " << connectionTable[j][3] << endl;
-			}
-		}
+
 
 
 
@@ -724,7 +847,7 @@ int main() {
 		outfile.close();
 		return 0;
 
-	*/
+
 		//只是UDP send 的test
 		/*sendToOneUDPTable(fdUDP, NodeAddr, neighborTable, nodeToPort, NodeAddr);
         ReceiveUDPTableFromOne(fdUDP, connectionTable);
@@ -745,7 +868,7 @@ int main() {
 
 	}
 
-
 }
+
 
 

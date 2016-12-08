@@ -341,10 +341,23 @@ int runServer(){
 			}
 		}
 
-
-
-
-
+		for (int i = 0; i < numberOfRouters; i++) {
+			int fdTCP = (routers[i]).sockfd;
+			int32_t nodeID = (routers[i]).routerID;
+			int32_t portUDP = (routers[i]).portUDP;
+			char c = receiveCommand(fdTCP);
+			if (c == 'C') {
+				outfile << "Got COMPLETE from router " << nodeID << endl;
+				if (i==numberOfRouters-1){
+					for (int j = 0; j <numberOfRouters;j++){
+						sendCommand(routers[j].sockfd, 'U');
+					}
+				}
+			}
+			else{
+				cout << "unexpected command!" <<endl;
+			}
+		}
 
 	return 0;
 }
@@ -393,11 +406,6 @@ int main(int argc, char *argv[]){
 	}
 	outfile.close();
 	return 0;
-
-
-
-
-
 
 
 	/*if(argc != 2){
