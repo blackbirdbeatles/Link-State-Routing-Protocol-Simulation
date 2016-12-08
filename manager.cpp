@@ -82,76 +82,103 @@ void readFile(ifstream& inFile){
 	writeToFile("Finished reading input file.  ");
 }
 
-vector<vector<int>> buildNeighborTable(int routerNum){
-	vector<vector<int>> retTable;
-	for(unsigned int i=0; i<routingTable.size(); i++){
+vector<connection> buildNeighborTable(int routerNum){
+	vector<connection> retTable;
+	/*for(unsigned int i=0; i<routingTable.size(); i++){
 		if(routingTable.at(i).at(0) == routerNum){
-			vector<int> tempVec;
+			connection current;
+			current.destRouter = routingTable.at(i).at(1);
+			current.cost = routingTable.at(i).at(2);
 			int other = routingTable.at(i).at(1);
-			tempVec.push_back(routingTable.at(i).at(1));
-			tempVec.push_back(routingTable.at(i).at(2));
-			tempVec.push_back(routers.at(other).UDPsocket);
+			current.portNum = routers.at(other).UDPsocket;
 			
-			retTable.push_back(tempVec);
+			retTable.push_back(current);
 		}else if(routingTable.at(i).at(1) == routerNum){
-			vector<int> tempVec;
+			connection current;
+			current.destRouter = routingTable.at(i).at(0);
+			current.cost = routingTable.at(i).at(2);
 			int other = routingTable.at(i).at(0);
-			tempVec.push_back(routingTable.at(i).at(0));
-			tempVec.push_back(routingTable.at(i).at(2));
-			tempVec.push_back(routers.at(other).UDPsocket);
+			current.portNum = routers.at(other).UDPsocket;
 			
-			retTable.push_back(tempVec);
+			retTable.push_back(current);
+			
+		}
+	}*/
+	
+	for(unsigned int i=0; i<routingTable.size(); i++){
+		int other = -1;
+		if(routingTable.at(i).at(0) == routerNum){
+			other = routingTable.at(i).at(1);
+		}else if(routingTable.at(i).at(1) == routerNum){
+			other = routingTable.at(i).at(0);
+		}
+		if(other != -1){
+			connection current;
+			current.router1 = routingTable.at(i).at(0);
+			current.router2 = routingTable.at(i).at(1);
+			current.cost = routingTable.at(i).at(2);
+			current.portNum = routers.at(other).UDPsocket;
+			retTable.push_back(current);
 		}
 	}
-	
 	return retTable;
 }
 
-char* packTable(vector<vector<int>> neighborTable){
+char* packTable(vector<connection> neighborTable){
 	char* buff;
-	buff = (char*)malloc((neighborTable.size() * 3) * sizeof(short) + 1);
+	string buffer = "";
+	buff = (char*)malloc((neighborTable.size() * 3) * sizeof(long));
 	
-	string tempstr = "";
+	//string tempstr = "";
 	
 	for(unsigned int i=0; i<neighborTable.size(); i++){
-		for(unsigned int j=0; j<neighborTable.at(i).size(); j++){
-			long temp = neighborTable.at(i).at(j);
-			memcpy(buff+(((i*3)+j) * 8), &temp, 8);
-		}
+			int temprouter1 = neighborTable.at(i).router1;
+			int temprouter2 = neighborTable.at(i).router2;
+			int tempCost = neighborTable.at(i).cost;
+			int tempPort = neighborTable.at(i).portNum;
+			//cout << temp << " ";
+			//NOTE: Remeber to fix this later!
+			buffer.append(to_string(temprouter1));
+			buffer.append(" ");
+			buffer.append(to_string(temprouter2));
+			buffer.append(" ");
+			buffer.append(to_string(tempCost));
+			buffer.append(" ");
+			buffer.append(to_string(tempPort));
+			buffer.append(" ");
+			//buffer.c_str();
+			//memcpy(buff+(((i*3)+j) * sizeof(long)), &temp, sizeof(long));
+		//cout << endl;
 	}
+	
+	strcpy(buff, buffer.c_str());
+	cout << buffer << endl << buff << endl;
 	
 	//memset(buff + strlen(buff), 0, 1);
 	
 	return buff;
 }
 
-char* packRouterInfo(short routerNum, vector<vector<int>> neighborTable){
-	char* buff;
-	short length = (4 + (neighborTable.size() * 3) * 8);
+string packRouterInfo(short routerNum, vector<connection> neighborTable){
+	string temp = "";
+	temp.append(to_string(routerNum) + "\n");
+	for(unsigned int i = 0; i< neighborTable.size(); i++){
+		temp.append(to_string(neighborTable[i].router1) + " " + to_string(neighborTable[i].router2) + " " + to_string(neighborTable[i].cost) + " " + to_string(neighborTable[i].portNum) + "\n");
+	}	
+	temp.append(to_string(-1) + '\0');
 	
-	buff = (char*)malloc(length * sizeof(char));
-	memcpy(buff, &length, 2);
-	memcpy(buff+2, &routerNum, 2);
+	cout<<"here: "<<temp<<endl;
 	
-	char* table = packTable(neighborTable);
-	
-	memcpy(buff+4, table, length-4);
-	
-	cout << "length " << length << endl;
-	
-	return buff;
+	return temp;
 }
 
-
-
-void sendMsg(int the_fd, long current){
+void sendMsg(int the_fd, short current){
 	while(1){
-		char buff[sizeof(long)];
-		string check;
-		char* toSend;
-		toSend = (char*)malloc(sizeof(long));
-		memcpy(toSend, &current, 4);
-		if(send(the_fd, toSend, strlen(buff), 0) == -1){
+		//int size = buildNeighborTable(current).size()*3;
+		cout << current << endl;
+		vector<connection> table = buildNeighborTable(current);
+		string toSend = packRouterInfo(current, table);
+		if(send(the_fd, const_cast<char *>(toSend.c_str()), toSend.length(), 0) == -1){
 			cerr << "send error" << endl;
 			exit(1);
 		}
@@ -246,7 +273,7 @@ int runServer(){
 		//cout << "Accepted connection " << count << endl;
 		
 		char* newPort = recieveMsg(new_fd);
-		sendMsg(new_fd, count);
+		//sendMsg(new_fd, count);
 		
 		routerInfo currentRouter;
 		currentRouter.routerID = (long)count;
@@ -271,6 +298,10 @@ int runServer(){
 		
 		
 		count++;
+	}
+	
+	for(unsigned int i=0; i<routers.size(); i++){
+		sendMsg(routers.at(i).sockfd, routers.at(i).routerID);
 	}
 
 	return 0;
@@ -309,7 +340,7 @@ int main(int argc, char *argv[]){
 					status = execvp("router", argv);
 				} else{
 					// If childPID is not 0, wait for it to finish, then print the exit status
-					wait(&status);
+					//wait(&status);
 				}
 			} else{
 				// Error, failed to fork
@@ -326,31 +357,5 @@ int main(int argc, char *argv[]){
 	
 	outFile.close();
 	
-	
-	// Test code for building neighbor tables
-	vector<vector<int>> table = buildNeighborTable(2);
-	
-	for(unsigned int i=0; i<table.size(); i++){
-		for(unsigned int j=0; j<table.at(i).size(); j++){
-			cout << table.at(i).at(j) << " ";
-		}
-		cout << endl;
-	}
-	
-	for(unsigned int i=0; i<routers.size(); i++){
-		cout << routers.at(i).routerID << " " << routers.at(i).UDPsocket << endl;
-	}
-	
-	char* buff = packRouterInfo(2, table);
-	
-	cout << strlen(buff) << endl;
-	
-	string str(buff);
-	
-	cout << str;
-	
-	cout << endl;
-	
 	return 0;
 }
-
