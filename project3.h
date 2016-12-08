@@ -41,9 +41,9 @@ struct ResultUDPCreation{
 	int fd;
 };
 struct routerInfo{
-	long routerID;
-	long UDPsocket;
-	long sockfd;
+	int32_t routerID;
+	int32_t portUDP;
+	int32_t sockfd;
 };
 
 using namespace std;

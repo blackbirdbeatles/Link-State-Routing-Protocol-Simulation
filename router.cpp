@@ -14,19 +14,10 @@
 using namespace std;
 
 
+ofstream outfile;
 
-/*
-int routerPrint(string message) {
-	ofstream routerFile;
-	string fileName = "router";
-	string ID = to_string(routerID);
-	fileName.append(ID.c_str());
-	fileName.append(".out");
-	routerFile.open(fileName);
-	routerFile << message << endl;
-	return 0;
-}
- */
+
+
 
 /*
 
@@ -153,11 +144,22 @@ void sendCommand(int the_fd, char c){
 	memcpy(toSend, &sizeOfPacket,2);
 	memcpy(toSend + 2, &c, 1);
 	toSend[sizeOfPacket] = 0;
-	cout<<"The one we should send is"<<*(toSend+1)<<endl;
+	outfile<<"The one we should send is "<<*(toSend+2)<<endl;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
 	}
+}
+char receiveCommand(int the_fd){
+	char* buff;
+	long packageSize = sizeof(char)+sizeof(char);
+	buff = (char*)malloc(packageSize+1);
+	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
+		cerr << "recv error" << endl;
+		exit(1);
+	}
+	buff[packageSize] = 0;
+	return *(buff+sizeof(char));
 }
 
 
@@ -166,7 +168,7 @@ void receiveTest(int the_fd, uint16_t& source, uint16_t& dest){
 	uint16_t packageSize = sizeof(uint16_t)+sizeof(uint16_t)+sizeof(uint16_t);
 	buff = (char*)malloc(packageSize+1);
 	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
-		cerr << "recv error" << endl;
+		cerr << "receiveTest error and s and d is: "<< source<<" "<< dest<<endl;
 		exit(1);
 	}
 	buff[packageSize] = 0;
@@ -174,8 +176,48 @@ void receiveTest(int the_fd, uint16_t& source, uint16_t& dest){
 	//Give the source and dest
 	memcpy(&source,buff+ sizeof(uint16_t), sizeof(uint16_t));
 	memcpy(&dest, buff+sizeof(uint16_t)*2, sizeof(uint16_t));
+	outfile << "The test received from manager is   source: "<< source<<"   dest:  "<<dest<<endl;
 
 }
+
+int receiveIDAndConnectionTable(int fdTCP, int &ID, vector<vector<int>>& neighborTable){
+
+	char* buff;
+	int bufferLen = 512;
+	buff = (char*)malloc(bufferLen+1);
+	if((recv(fdTCP, buff, bufferLen+1, 0)) == -1){
+		cerr << " receiveIDAndConnectionTable error" << endl;
+		exit(1);
+	}
+	uint16_t packetSize;
+	memcpy(&packetSize,buff, sizeof(uint16_t));
+	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int)))/(4 * sizeof(uint16_t));
+
+	//dataLength and NodeAddr
+	memcpy(&ID, buff + sizeof(uint16_t), sizeof(int32_t));
+
+
+	// extract neighborNum groups of "neighbor ,cost, port"
+	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t);
+	for (int i = 0; i <neighborNum; i++){
+		int32_t source, dest, cost, port;
+		memcpy(&source,buff+offset, sizeof(int32_t) );
+		memcpy(&dest,buff+offset+ sizeof(int32_t),  sizeof(int32_t) );
+		memcpy(&cost,buff+offset+ sizeof(int32_t)*2,  sizeof(int32_t) );
+		memcpy(&port,buff+offset+ sizeof(int32_t)*3,sizeof(int32_t) );
+		offset += sizeof(int32_t)*4;
+		vector<int> tempt;
+		neighborTable.push_back(tempt);
+		neighborTable.at(i).push_back(source);
+		neighborTable.at(i).push_back(dest);
+		neighborTable.at(i).push_back(cost);
+		neighborTable.at(i).push_back(port);
+	}
+}
+
+
+
+
 
 
 
@@ -202,7 +244,7 @@ ResultUDPCreation createUDPConnection(){
 
 		getsockname(sockfd, (struct sockaddr *)&addrinfo, &addrlen);
 		portNum = ntohs(addrinfo.sin_port);
-		cout << "Router side UDP port num: " << portNum << endl;
+		outfile << "Router side UDP port num: " << portNum << endl;
 		break;
 	}
 
@@ -238,7 +280,7 @@ int connectToServer(){
 			continue;
 		}
 
-		cout << "Connecting... ";
+		outfile << "Connecting... ";
 		break;
 	}
 
@@ -247,7 +289,7 @@ int connectToServer(){
 		return -1;
 	}
 
-	cout << "Connected!" << endl;
+	outfile << "Connected!" << endl;
 
 
 	freeaddrinfo(serverInfo);
@@ -259,9 +301,6 @@ int connectToServer(){
 
 
 
-int receiveFromOneUDP(int fdUDP, int& sourceNode, string& message){
-
-}
 
 
 int sendToOneUDPCommand(int fdUDP, int NodeID, char c ){
@@ -327,9 +366,9 @@ int ReceiveUDPTableFromOne(int fdUDP, vector<vector<int>>& connectionTable){
 	recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 	//
 	memcpy(&packetSize, buff, sizeof(uint16_t));
-	cout << "packetSize is: "<< packetSize <<endl;
+	outfile << "packetSize is: "<< packetSize <<endl;
 	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int)))/(4 * sizeof(uint16_t));
-	cout << "neighborNum is" << neighborNum <<endl;
+	outfile << "neighborNum is" << neighborNum <<endl;
 
 
 	// extract neighborNum groups of "neighbor ,cost, port"
@@ -416,107 +455,64 @@ void *waitMsg(void* p){
 */
 
 
-int main(){
+int main() {
+
 
 	sleep(1);
+
 	//Hardcode area  #begin#
 
 
 	//Hardcode area  #end#
 
-	cout << "inside router main" << endl;
+
 
 
 	int fdTCP = connectToServer();
 	ResultUDPCreation r;
-	int fdUDP,portUDP;
+	int fdUDP, portUDP;
 	r = createUDPConnection();
 	fdUDP = r.fd;
 	portUDP = r.port;
+
+
+	sendPortNum(fdTCP, portUDP);
+
 	int NodeAddr;
-	vector<vector<int> > connectionTable, neighborTable;
+	vector <vector<int>> connectionTable, neighborTable;
+	receiveIDAndConnectionTable(fdTCP, NodeAddr, neighborTable);
+	string filename = "Router" + to_string(NodeAddr) + ".out";
+	outfile.open(filename);
+	outfile << "Test of neighbor table of " << NodeAddr << endl;
+	outfile << "SIZE:" << neighborTable.size() << endl;
+	for (int i = 0; i < neighborTable.size(); i++) {
+		outfile << neighborTable[i][0] << " " << neighborTable[i][1] << " " << neighborTable[i][2] << endl;
+	}
+
+
+
+
+	map<int, int> nodeToPort;
+	//buildNodeToPort(nodeToPort);
+
+
+
+
 	map<int, int> flowChart;
-	sendPortNum(fdTCP,portUDP);
-
-	// ~~~~~~~~~~Here is just for test sending package;
-	sendCommand(fdTCP, 'C');
-	sendCommand(fdTCP, 'R');
-
-	sendCommand(fdTCP, 'S');
-	sendCommand(fdTCP, 'U');
-	for (int i =0 ;i <2;i++) {
-		uint16_t s,d;
-		receiveTest(fdTCP,s,d);
-		cout << "Source: " <<s<<"   Dest: "<<d<<endl;
-	}
-
-
-
-
-
-	map<int,int> nodeToPort;
-
-
-	struct sockaddr_in si_other;
-	socklen_t fromlen;
-	char buff[10];
-
-	sendPortNum(fdTCP,portUDP);
-	recvfrom(fdUDP, buff, 10, 0, (struct sockaddr*)&si_other, &fromlen);
-	cout << map[0];
-	cout <<map[1];
-
-	int sourceNode;
-	sendToOneUDPTable(fdUDP, NodeAddr, neighborTable, nodeToPort, NodeAddr);
-	ReceiveUDPTableFromOne(fdUDP, connectionTable);
-
-	for (int i = 0; i < connectionTable.size(); i++){
-		for (int j =0; j <connectionTable[i].size();j++)
-			cout << connectionTable[i][j];
-		cout<<endl;
-	}
-
-
-	//~~~~~~~~~~~~~
-
-
-	/*
-
-
-
-	//clear message to avoid that it's original value affect the massage we just received
-	string message = "";
-	/////////The following 2 row is commented just for hardcode
-	//receiveFromManager(fdTCP, message);
-	//cout <<"NodeAddr, neighborTable, nodeToPort: " << message << endl;
-	//We need to figure out the format of the packet
-
-	/////////The following 1 row is commented just for hardcode
-	//breakTheMessageReceived(message, NodeAddr, neighborTable, nodeToPort);
-
-
-	/////////HardCode begin1
-	NodeAddr = 1;
-	vector<int> v;
-	v.push_back(1);
-	v.push_back(2);
-	v.push_back(10);
-	neighborTable.push_back(v);
-	/////////HardCode end1
 
 
 	sendCommand(fdTCP, 'R');
-	message = "";
-	receiveFromManager(fdTCP, message);
-	if (message == "S"){   												// MEANS:  It is safe to try to reach neighbors.
+	char c;
+	c = receiveCommand(fdTCP);
+	if (c == 'S') {                                                // MEANS:  It is safe to try to reach neighbors.
 
+		/*
 		sendToAllNeighbors(fdUDP, "#" + to_string(portUDP));
 		receiveFromAllNeighbors(fdUDP);
 
 		sendCommand(fdTCP, 'C');
-		message = "";
-		receiveFromManager(fdTCP, message);
-		if (message == "Up"){
+		c = receiveCommand(fdTCP);
+		if (message == 'U'){
 			LSP(neighborTable, connectionTable,nodeToPort);
 			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			//BuildSPT(connectionTable);
@@ -557,13 +553,32 @@ int main(){
 		cerr << "Error: The following message expected: safe!" <<endl;
 		return -1;
 	}
+		 */
+		outfile << "Yes! I receive the command S" << endl;
+		outfile.close();
+		return 0;
 
-	 */
-	return 0;
+
+		//只是UDP send 的test
+		/*sendToOneUDPTable(fdUDP, NodeAddr, neighborTable, nodeToPort, NodeAddr);
+        ReceiveUDPTableFromOne(fdUDP, connectionTable);
+
+
+        outfile <<"  12   " <<endl;
+        for (int i = 0; i < connectionTable.size(); i++){
+            for (int j =0; j <connectionTable[i].size();j++)
+                outfile << connectionTable[i][j];
+            outfile<<endl;
+        }
+        outfile <<"  13   " <<endl;
+        */
+
+
+
+		//~~~~~~~~~~~~~
+	}
+
+
 }
-
-
-
-
 
 

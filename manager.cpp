@@ -6,9 +6,9 @@ int numberOfRouters;
 const char* ip;
 int sockfd, new_fd;
 vector<routerInfo> routers;
-
+ofstream outfile;
 void sigHandler(int signum){
-	cout << "Interrupt signal (" << signum << ") received.\n";
+	outfile << "Interrupt signal (" << signum << ") received.\n";
 
 	close(sockfd);
 	close(new_fd);
@@ -37,7 +37,7 @@ void readFile(ifstream& inFile){
 				int nextNum;
 				iss >> nextNum;
 				if (nextNum == -1) {
-					cout << "Breaking -1" << endl;
+					outfile << "Breaking -1" << endl;
 					grouping++;
 					moveOn = true;
 					break;
@@ -45,7 +45,7 @@ void readFile(ifstream& inFile){
 				routerConnection.push_back(nextNum);
 			}
 			if(!moveOn){
-				cout << "Router Connection: " << routerConnection[0] << " " << routerConnection[1] << " " << routerConnection[2] << endl;
+				outfile << "Router Connection: " << routerConnection[0] << " " << routerConnection[1] << " " << routerConnection[2] << endl;
 				connectionTable.push_back(routerConnection);
 			}
 		}
@@ -56,23 +56,23 @@ void readFile(ifstream& inFile){
 				int RouterNum;
 				iss >> RouterNum;
 				if (RouterNum == -1) {
-					cout << "Breaking -1" << endl;
+					outfile << "Breaking -1" << endl;
 					grouping++;
 					moveOn = true;
 					break;
 				}
-				cout << "Routernum " << RouterNum << endl;
+				outfile << "Routernum " << RouterNum << endl;
 				command.push_back(RouterNum);
 			}
 			if(!moveOn){
-				cout << "Command: " << command[0] << " " << command[1] << endl;
+				outfile << "Command: " << command[0] << " " << command[1] << endl;
 				routingCommands.push_back(command);
 			}
 		}
 		roundThrough++;
-		cout << "roundThrough: " << roundThrough << endl;
+		outfile << "roundThrough: " << roundThrough << endl;
 	}
-	cout << "done" << endl;
+	outfile << "done" << endl;
 }
 
 void sendMsg(int the_fd, long current){
@@ -101,6 +101,22 @@ uint32_t receivePortNum(int the_fd){
 	return *((uint32_t*)(buff+sizeof(uint32_t)));
 }
 
+void sendCommand(int the_fd, char c){
+	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(char);
+	//char* toSend;
+	//toSend = (char*)malloc(sizeOfPacket + 1);
+	char toSend[4];
+	memcpy(toSend, &sizeOfPacket,2);
+	memcpy(toSend + 2, &c, 1);
+	toSend[sizeOfPacket] = 0;
+	outfile<<"The one we should send is "<<*(toSend+2)<<endl;
+	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
+		cerr << "send error" << endl;
+		exit(-1);
+	}
+}
+
+
 char receiveCommand(int the_fd){
 	char* buff;
 	long packageSize = sizeof(char)+sizeof(char);
@@ -114,17 +130,16 @@ char receiveCommand(int the_fd){
 }
 
 void sendTest(int the_fd, uint16_t source, uint16_t dest){
-	cout<<"what is the original one?  "<<(uint16_t)source<<"  "<<(uint16_t)dest<<endl;
+	outfile<<"what is the original one?  "<<(uint16_t)source<<"  "<<(uint16_t)dest<<endl;
 	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(uint16_t) +sizeof(uint16_t);
 	//char* toSend;
 	//toSend = (char*)malloc(sizeOfPacket + 1);
-	cout << "uint16_t   "<< sizeof(uint16_t)<<endl;
 	char toSend[7];
 	memcpy(toSend, &sizeOfPacket,sizeof(uint16_t));
 	memcpy(toSend + sizeof(uint16_t), &source, sizeof(uint16_t));
 	memcpy(toSend + sizeof(uint16_t)*2, &dest, sizeof(uint16_t));
 	toSend[sizeOfPacket] = 0;
-	cout << "Send Test" << toSend[0] << " "<<toSend[1] << " "<<toSend[2] <<endl;
+	outfile << "Send Test " << *(uint16_t*)toSend << " "<<*(uint16_t*)(toSend+2) << " "<<*(uint16_t*)(toSend+4) <<endl;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
@@ -132,47 +147,51 @@ void sendTest(int the_fd, uint16_t source, uint16_t dest){
 }
 
 
-void getNeighborTableSet(vector<vector<int>>& connectionTable, int nodeID, int RouterNum, vector<vector<int>>& neighborTableSet){
+void buildNeighborTableSet(vector<vector<int>>& connectionTable, int RouterNum, vector<vector<vector<int>>> & neighborTableSet){
 
 	//Go through the whole connectionTable read from input file, build the direct neighbor Table of each node
 
 	for (int i=0; i <connectionTable.size(); i++){
-		neighborTableSet[connectionTable[i][0]].push_pack(connectionTable[i]);
+		(neighborTableSet[connectionTable[i][0]]).push_back(connectionTable[i]);
 		vector<int> reverseEdge = connectionTable[i];
 		int t;
 		t = reverseEdge[0];
 		reverseEdge[0] = reverseEdge[1];
 		reverseEdge[1] = t;
-		neighborTableSet[connectionTable[i][1]].push_pack(reverseEdge);
+		(neighborTableSet[connectionTable[i][1]]).push_back(reverseEdge);
 	}
 }
 
 
-int sendIDAndConnectionTable(int fdTCP, vector<vector<int>>& neighborTable){
+int sendIDAndConnectionTable(int fdTCP, int32_t ID, vector<vector<int>> neighborTable){
 
 	char* toSend;
 
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
-	uint16_t packetSize = sizeof(uint16_t)+ neighborNum * (4 * sizeof(uint16_t));
+	outfile << "neighborNum: "<<neighborNum<<endl;
+	uint16_t packetSize = sizeof(uint16_t)+ sizeof(int32_t)+neighborNum * (4 * sizeof(int32_t));
+	outfile << "packSize: "<<packetSize<<"ID is: "<<ID<<endl;
 	toSend = (char*) malloc(packetSize+1);
 	memcpy(toSend,&packetSize, sizeof(uint16_t));
+	memcpy(toSend+ sizeof(uint16_t),&ID, sizeof(int32_t));
+
 
 	// neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t);
+	uint16_t offset = sizeof(int16_t)+ sizeof(int32_t);
 	for (int i = 0; i <neighborNum; i++){
-		int source = neighborTable[i][0];
-		int dest = neighborTable[i][1];
-		int cost = neighborTable[i][2];
-		int port = neighborTable[i][3];
-		memcpy(buff+offset, &source, sizeof(int) );
-		memcpy(buff+offset+ sizeof(int), &dest, sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*2, &cost, sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*3, &port, sizeof(int) );
-		offset += sizeof(int)*4;
+		int32_t source = neighborTable[i][0];
+		int32_t dest = neighborTable[i][1];
+		int32_t cost = neighborTable[i][2];
+		int32_t port = neighborTable[i][3];
+		memcpy(toSend+offset, &source, sizeof(int32_t) );
+		memcpy(toSend+offset+ sizeof(int32_t), &dest, sizeof(int32_t) );
+		memcpy(toSend+offset+ sizeof(int32_t)*2, &cost, sizeof(int32_t) );
+		memcpy(toSend+offset+ sizeof(int32_t)*3, &port, sizeof(int32_t) );
+		offset += sizeof(int32_t)*4;
 	}
-	buff[packetSize]=0;
-	if (send(fdTCP, toSend, packetSize+1, 0)!=0)
+	toSend[packetSize]=0;
+	if (send(fdTCP, toSend, 512+1, 0)!=0)
 	{
 		cerr << "TCP send table fail"<<endl;
 		exit(1);
@@ -194,7 +213,7 @@ int runServer(){
 	gethostname(hostName, sizeof hostName);
 	hostent* hostInfo = gethostbyname(hostName);
 	in_addr* hostIP = (in_addr*)hostInfo -> h_addr;
-	cout << "Here is host IP " << hostIP <<endl;
+	outfile << "Here is host IP " << hostIP <<endl;
 
 	string res = inet_ntoa(*hostIP);
 
@@ -212,7 +231,7 @@ int runServer(){
 
 	int retVal;
 	if((retVal = getaddrinfo(NULL, PORT, &hints, &serverInfo)) != 0){
-		cout << "getaddrinfo: " << stderr << gai_strerror(retVal);
+		outfile << "getaddrinfo: " << stderr << gai_strerror(retVal);
 		return -1;
 	}
 
@@ -237,7 +256,7 @@ int runServer(){
 	freeaddrinfo(serverInfo);
 
 	if(p == NULL){
-		cout << "Server: failed to bind" << endl;
+		outfile << "Server: failed to bind" << endl;
 		exit(1);
 	}
 
@@ -250,46 +269,50 @@ int runServer(){
 	while(count < numberOfRouters){
 		sin_size = sizeof their_addr;
 		new_fd = accept(sockfd, (struct sockaddr*)&their_addr, &sin_size);
+		routerInfo currentRouter;
+		currentRouter.sockfd = new_fd;
 		if(new_fd == -1){
 			continue;
 		}
 
 		inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr*)&their_addr), s, sizeof s);
-		//cout << "Accepted connection " << count << endl;
-
-		sendMsg(new_fd, count);
-
-		routerInfo currentRouter;
-		currentRouter.routerID = (long)count;
-		currentRouter.sockfd = (long)new_fd;
-		uint32_t newPort = receivePortNum(new_fd);
-		cout << "The UDP portNum for " << currentRouter.routerID << " is " << newPort<< endl;
-
-
-		//~~~~From here it begins to just test the sending and receiving function
-		for (int i=0;i<4;i++){
-			 char c =receiveCommand(new_fd);
-			 cout << "The manager receive " << c <<endl;
-		}
-
-		sendTest(new_fd, (uint16_t)1, (uint16_t)0);
-		sendTest(new_fd, (uint16_t)0, (uint16_t)1);
-
-		//test send connectionTable
+		//outfile << "Accepted connection " << count << endl;
 		int nodeID = count;
+		uint32_t nodePort = receivePortNum(new_fd);
+		currentRouter.portUDP = nodePort;
+		currentRouter.routerID = nodeID;
+		outfile << "The UDP portNum for " << nodeID << " is " << nodePort<< endl;
+
+
+
+
 
 
 			//initialize the neighborTableSet
 
-		vector<vector<vector<int> > > neighborTableSet;
+		vector<vector<vector<int>>> neighborTableSet;
 		vector<int> tmp;
 		vector<vector<int> > tmp2;
 		for (int i = 0; i < numberOfRouters; i++)
 			neighborTableSet.push_back(tmp2);
 
-		getNeighborTableSet(connectionTable, nodeID, numberOfRouters, neighborTableSet);
-		sendIDAndConnectionTable(new_fd, neighborTable);
-		//~~~~From here it  ends to just test the sending and receiving function
+			//build neighbor table and print it out to see
+		buildNeighborTableSet(connectionTable, numberOfRouters, neighborTableSet);
+		for (int i = 0; i<numberOfRouters; i++){
+			outfile << "neighborTableSet for R " << i <<":"<<endl;
+			for (int j = 0; j < neighborTableSet[i].size(); j++){
+				outfile <<"    "<< neighborTableSet[i][j][0]<< " "<<neighborTableSet[i][j][1]<< " "<<neighborTableSet[i][j][2]<<endl;
+			}
+		}
+
+		sendIDAndConnectionTable(new_fd,nodeID, neighborTableSet[nodeID]);
+		char c = receiveCommand(new_fd);
+		if (c=='R'){
+			outfile << "Got ready from router " << nodeID <<endl;
+			sendCommand(new_fd, 'S');
+		}
+
+
 		routers.push_back(currentRouter);
 		count++;
 	}
@@ -307,6 +330,9 @@ void * waitForConnections(void* a){
 
 int main(int argc, char *argv[]){
 	if (argc == 2) {
+		outfile.open("manager.txt");
+		outfile<<"Manager output."<<endl;
+
 		ifstream inFile(argv[1]);
 		readFile(inFile);
 
@@ -319,11 +345,12 @@ int main(int argc, char *argv[]){
 			if(childPID >= 0){
 				// If childPID is 0, the fork succeeded. Execute the child program
 				if(childPID == 0){
-					cout << "calling router" << endl;
+					outfile << "calling router" << endl;
 					status = execv("router", argv);
+					exit(0);
 				} else{
 					// If childPID is not 0, wait for it to finish, then print the exit status
-					wait(&status);
+				//	wait(&status);
 				}
 			} else{
 				// Error, failed to fork
@@ -337,7 +364,7 @@ int main(int argc, char *argv[]){
 	else {
 		cerr << "Wrong args, need 2 total" << endl;
 	}
-
+	outfile.close();
 	return 0;
 
 
@@ -347,13 +374,13 @@ int main(int argc, char *argv[]){
 
 
 	/*if(argc != 2){
-		cout << "Put the right arguments, dumbass" << endl;
+		outfile << "Put the right arguments, dumbass" << endl;
 		return -1;
 	}
 	
 	int test = atoi(argv[1]);
 	numRouters = test;
-	cout << "Starting Threads" << endl;
+	outfile << "Starting Threads" << endl;
 	
 	pthread_t t1;
 	string s = to_string(test);
