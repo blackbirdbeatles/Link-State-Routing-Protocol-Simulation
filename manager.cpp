@@ -147,17 +147,20 @@ void sendTest(int the_fd, uint16_t source, uint16_t dest){
 }
 
 
-void buildNeighborTableSet(vector<vector<int>>& connectionTable, int RouterNum, vector<vector<vector<int>>> & neighborTableSet){
+void buildNeighborTableSet(vector<vector<int>>& connectionTable, int RouterNum, vector<vector<vector<int>>> & neighborTableSet, vector<routerInfo>& routers){
 
 	//Go through the whole connectionTable read from input file, build the direct neighbor Table of each node
 
 	for (int i=0; i <connectionTable.size(); i++){
-		(neighborTableSet[connectionTable[i][0]]).push_back(connectionTable[i]);
+		vector<int> edge = connectionTable[i];
+		edge.push_back((routers[connectionTable[i][1]]).portUDP);
+		(neighborTableSet[connectionTable[i][0]]).push_back(edge);
 		vector<int> reverseEdge = connectionTable[i];
 		int t;
 		t = reverseEdge[0];
 		reverseEdge[0] = reverseEdge[1];
 		reverseEdge[1] = t;
+		reverseEdge.push_back((routers[connectionTable[i][1]]).portUDP);
 		(neighborTableSet[connectionTable[i][1]]).push_back(reverseEdge);
 	}
 }
@@ -165,17 +168,23 @@ void buildNeighborTableSet(vector<vector<int>>& connectionTable, int RouterNum, 
 
 int sendIDAndConnectionTable(int fdTCP, int32_t ID, vector<vector<int>> neighborTable){
 
-	char* toSend;
+	char toSend[513];
 
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
 	outfile << "neighborNum: "<<neighborNum<<endl;
 	uint16_t packetSize = sizeof(uint16_t)+ sizeof(int32_t)+neighborNum * (4 * sizeof(int32_t));
-	outfile << "packSize: "<<packetSize<<"ID is: "<<ID<<endl;
-	toSend = (char*) malloc(packetSize+1);
+	outfile << "packSize: "<<packetSize<<" ID is: "<<ID<<endl;
 	memcpy(toSend,&packetSize, sizeof(uint16_t));
 	memcpy(toSend+ sizeof(uint16_t),&ID, sizeof(int32_t));
 
+
+	uint16_t pi;
+	int32_t pd;
+	memcpy(&pi,toSend, sizeof(uint16_t));
+	memcpy(&pd,toSend+2, sizeof(int32_t));
+	outfile <<"packetSize into toSend is: "<<pi<<endl;
+	outfile <<"ID into toSend is: "<<pd<<endl;
 
 	// neighborNum groups of "neighbor ,cost, port"
 	uint16_t offset = sizeof(int16_t)+ sizeof(int32_t);
@@ -184,6 +193,7 @@ int sendIDAndConnectionTable(int fdTCP, int32_t ID, vector<vector<int>> neighbor
 		int32_t dest = neighborTable[i][1];
 		int32_t cost = neighborTable[i][2];
 		int32_t port = neighborTable[i][3];
+		outfile <<"s,d,c,p is: " <<source<<" "<<dest<<" "<<cost<<" "<<port<<endl;
 		memcpy(toSend+offset, &source, sizeof(int32_t) );
 		memcpy(toSend+offset+ sizeof(int32_t), &dest, sizeof(int32_t) );
 		memcpy(toSend+offset+ sizeof(int32_t)*2, &cost, sizeof(int32_t) );
@@ -191,7 +201,7 @@ int sendIDAndConnectionTable(int fdTCP, int32_t ID, vector<vector<int>> neighbor
 		offset += sizeof(int32_t)*4;
 	}
 	toSend[packetSize]=0;
-	if (send(fdTCP, toSend, 512+1, 0)!=0)
+	if (send(fdTCP, toSend, 512+1, 0)==-1)
 	{
 		cerr << "TCP send table fail"<<endl;
 		exit(1);
@@ -266,24 +276,33 @@ int runServer(){
 	}
 
 	int count = 0;
-	while(count < numberOfRouters){
+	while(count < numberOfRouters) {
 		sin_size = sizeof their_addr;
-		new_fd = accept(sockfd, (struct sockaddr*)&their_addr, &sin_size);
+		new_fd = accept(sockfd, (struct sockaddr *) &their_addr, &sin_size);
 		routerInfo currentRouter;
 		currentRouter.sockfd = new_fd;
-		if(new_fd == -1){
+		if (new_fd == -1) {
 			continue;
 		}
 
-		inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr*)&their_addr), s, sizeof s);
+		inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
 		//outfile << "Accepted connection " << count << endl;
 		int nodeID = count;
 		uint32_t nodePort = receivePortNum(new_fd);
 		currentRouter.portUDP = nodePort;
 		currentRouter.routerID = nodeID;
-		outfile << "The UDP portNum for " << nodeID << " is " << nodePort<< endl;
+		outfile << "The UDP portNum for " << nodeID << " is " << nodePort << endl;
 
+		routers.push_back(currentRouter);
+		count++;
 
+	}
+
+	//test of vector: routers
+	outfile<< "The routers already got: "<<endl;
+	for (int i = 0; i < numberOfRouters; i++){
+		outfile << "ID: " << (routers[i]).routerID << "portUDP: " << (routers[i]).portUDP<< "TCP fd: " << (routers[i]).sockfd<<endl;
+	}
 
 
 
@@ -297,7 +316,7 @@ int runServer(){
 			neighborTableSet.push_back(tmp2);
 
 			//build neighbor table and print it out to see
-		buildNeighborTableSet(connectionTable, numberOfRouters, neighborTableSet);
+		buildNeighborTableSet(connectionTable, numberOfRouters, neighborTableSet,routers);
 		for (int i = 0; i<numberOfRouters; i++){
 			outfile << "neighborTableSet for R " << i <<":"<<endl;
 			for (int j = 0; j < neighborTableSet[i].size(); j++){
@@ -305,17 +324,22 @@ int runServer(){
 			}
 		}
 
-		sendIDAndConnectionTable(new_fd,nodeID, neighborTableSet[nodeID]);
-		char c = receiveCommand(new_fd);
-		if (c=='R'){
-			outfile << "Got ready from router " << nodeID <<endl;
-			sendCommand(new_fd, 'S');
+
+
+		for (int i = 0; i < numberOfRouters; i++) {
+			int fdTCP = (routers[i]).sockfd;
+			int32_t nodeID = (routers[i]).routerID;
+			int32_t portUDP = (routers[i]).portUDP;
+			sendIDAndConnectionTable(fdTCP, nodeID, neighborTableSet[nodeID]);
+			char c = receiveCommand(new_fd);
+			if (c == 'R') {
+				outfile << "Got ready from router " << nodeID << endl;
+				sendCommand(new_fd, 'S');
+			}
 		}
 
 
-		routers.push_back(currentRouter);
-		count++;
-	}
+
 
 
 

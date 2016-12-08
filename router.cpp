@@ -144,7 +144,7 @@ void sendCommand(int the_fd, char c){
 	memcpy(toSend, &sizeOfPacket,2);
 	memcpy(toSend + 2, &c, 1);
 	toSend[sizeOfPacket] = 0;
-	outfile<<"The one we should send is "<<*(toSend+2)<<endl;
+	outfile<<"The Command we should send is "<<*(toSend+2)<<endl;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
@@ -191,7 +191,7 @@ int receiveIDAndConnectionTable(int fdTCP, int &ID, vector<vector<int>>& neighbo
 	}
 	uint16_t packetSize;
 	memcpy(&packetSize,buff, sizeof(uint16_t));
-	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int)))/(4 * sizeof(uint16_t));
+	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int32_t)))/(4 * sizeof(int32_t));
 
 	//dataLength and NodeAddr
 	memcpy(&ID, buff + sizeof(uint16_t), sizeof(int32_t));
