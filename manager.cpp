@@ -62,18 +62,16 @@ void readFile(ifstream& inFile){
 					moveOn = true;
 					break;
 				}
-				outfile << "Routernum " << RouterNum << endl;
 				command.push_back(RouterNum);
 			}
 			if(!moveOn){
-				outfile << "Command: " << command[0] << " " << command[1] << endl;
 				routingCommands.push_back(command);
 			}
 		}
 		roundThrough++;
 		outfile << "roundThrough: " << roundThrough << endl;
 	}
-	outfile << "done" << endl;
+	outfile << "read file done" << endl;
 }
 
 void sendMsg(int the_fd, long current){
@@ -110,7 +108,7 @@ void sendCommand(int the_fd, char c){
 	memcpy(toSend, &sizeOfPacket,2);
 	memcpy(toSend + 2, &c, 1);
 	toSend[sizeOfPacket] = 0;
-	outfile<<"The one we should send is "<<*(toSend+2)<<endl;
+	outfile<<"send command "<<*(toSend+2)<<endl;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
@@ -140,7 +138,7 @@ void sendTest(int the_fd, int source, int dest){
 	memcpy(toSend, &flag, sizeof(char));
 	memcpy(toSend + sizeof(char), &source, sizeof(int));
 	memcpy(toSend + sizeof(char)+sizeof(int), &dest, sizeof(int));
-	outfile << "Send Test " << *(char*)toSend << " "<<*(int*)(toSend+1) << " "<<*(int*)(toSend+5) <<endl;
+	outfile << "Send Test(flag, source, dest): " << *(char*)toSend << " "<<*(int*)(toSend+1) << " "<<*(int*)(toSend+5) <<endl;
 	if(send(the_fd, toSend, 9, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
@@ -167,25 +165,22 @@ void buildNeighborTableSet(vector<vector<int>>& connectionTable, int RouterNum, 
 }
 
 
+
+
+//packet format: packetSIze + ID + numberOfRouters + s1 d1 c1 p1 + s2 d2 c2 p2 + s3 d3 c3 p3 + ...
+
 int sendIDAndConnectionTable(int fdTCP, int32_t ID, vector<vector<int>> neighborTable){
 
 	char toSend[513];
-
+	outfile << "Sending NodeID and Connection table to Router "<<ID<<endl;
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
-	outfile << "neighborNum: "<<neighborNum<<endl;
+
 	uint16_t packetSize = sizeof(uint16_t)+ sizeof(int32_t)+ sizeof(int)+neighborNum * (4 * sizeof(int32_t));
-	outfile << "packSize: "<<packetSize<<" ID is: "<<ID<<endl;
 	memcpy(toSend,&packetSize, sizeof(uint16_t));
 	memcpy(toSend+ sizeof(uint16_t),&ID, sizeof(int32_t));
 	memcpy(toSend+ sizeof(uint16_t)+ sizeof(int32_t), &numberOfRouters, sizeof(int));
-
-	uint16_t pi;
-	int32_t pd;
-	memcpy(&pi,toSend, sizeof(uint16_t));
-	memcpy(&pd,toSend+2, sizeof(int32_t));
-	outfile <<"packetSize into toSend is: "<<pi<<endl;
-	outfile <<"ID into toSend is: "<<pd<<endl;
+	outfile << "packSize: "<<packetSize<<"  ID is: "<<ID<<endl<<"     numberOfRouters: "<<numberOfRouters<<endl;
 
 	// neighborNum groups of "neighbor ,cost, port"
 	uint16_t offset = sizeof(int16_t)+ sizeof(int32_t)+ sizeof(int);
@@ -224,7 +219,6 @@ int runServer(){
 	gethostname(hostName, sizeof hostName);
 	hostent* hostInfo = gethostbyname(hostName);
 	in_addr* hostIP = (in_addr*)hostInfo -> h_addr;
-	outfile << "Here is host IP " << hostIP <<endl;
 
 	string res = inet_ntoa(*hostIP);
 
@@ -303,7 +297,7 @@ int runServer(){
 	//test of vector: routers
 	outfile<< "The routers already got: "<<endl;
 	for (int i = 0; i < numberOfRouters; i++){
-		outfile << "ID: " << (routers[i]).routerID << "portUDP: " << (routers[i]).portUDP<< "TCP fd: " << (routers[i]).sockfd<<endl;
+		outfile << "ID: " << (routers[i]).routerID << " portUDP: " << (routers[i]).portUDP<< " TCP fd: " << (routers[i]).sockfd<<endl;
 	}
 
 
@@ -334,7 +328,7 @@ int runServer(){
 			sendIDAndConnectionTable(fdTCP, nodeID, neighborTableSet[nodeID]);
 			char c = receiveCommand(fdTCP);
 			if (c == 'R') {
-				outfile << "Got ready from router " << nodeID << endl;
+				outfile << "Got READY from router " << nodeID << endl;
 				sendCommand(fdTCP, 'S');
 			}
 		}
@@ -352,9 +346,7 @@ int runServer(){
 					}
 				}
 			}
-			else{
-				cout << "unexpected command!" <<endl;
-			}
+
 		}
 		for (int i=0; i < routingCommands.size();i++){
 			sendTest(routers[routingCommands[i][0]].sockfd, routingCommands[i][0],routingCommands[i][1]);
@@ -365,8 +357,9 @@ int runServer(){
 			char c = 'E';
 			send(routers[i].sockfd,&c,1,0 );
 		}
-
 		outfile << "Sent quit messages to routers. Manager quitting." << endl;
+		usleep(500000);
+		cout << "Sent quit messages to routers. Manager quitting." << endl;
 
 
 

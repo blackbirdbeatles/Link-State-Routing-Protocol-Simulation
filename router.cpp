@@ -171,7 +171,9 @@ void buildNodeToPort(map<int, int>& nodeToPort,vector<vector<int>>& neighborTabl
 	}
 }
 
-
+//Packet format:
+//size of packet + port
+//uint32_t + uint32_t
 void sendPortNum(uint32_t the_fd, uint32_t port){
 	uint32_t sizeOfPacket = sizeof(uint32_t)+ sizeof(uint32_t);
 	//char* toSend;
@@ -185,6 +187,11 @@ void sendPortNum(uint32_t the_fd, uint32_t port){
 		exit(-1);
 	}
 }
+
+
+//packet Format:
+//	sizeOfPacket + commandCode
+//	uint16_t + char
 
 void sendCommand(int the_fd, char c){
 	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(char);
@@ -277,7 +284,6 @@ ResultUDPCreation createUDPConnection(){
 
 		getsockname(sockfd, (struct sockaddr *)&addrinfo, &addrlen);
 		portNum = ntohs(addrinfo.sin_port);
-		outfile << "Router side UDP port num: " << portNum << endl;
 		break;
 	}
 
@@ -358,7 +364,7 @@ void checkS(vector<int>& l){
 
 
 int sendToOneUDPCommand(int fdUDP, int32_t destNode, char flag, int32_t myID){
-
+	outfile << "Send command via udp"<<endl;
 	//sleep to avoid congestion
 	usleep(myID*1000);
 
@@ -395,7 +401,6 @@ int sendToOneUDPCommand(int fdUDP, int32_t destNode, char flag, int32_t myID){
 
 
 int sendBuffTo(int fdUDP,  int destNode, char* buff,int NodeID){
-
 //	cout << "A" << endl;
 	//sleep to avoid congestion
 	usleep(NodeID*1000);
@@ -405,25 +410,20 @@ int sendBuffTo(int fdUDP,  int destNode, char* buff,int NodeID){
 	struct sockaddr_in si_other;
 	socklen_t slen = sizeof(si_other);
 	memset((char *) &si_other, 0, sizeof(si_other));
-//	cout << "A" << endl;
-//	outfile<<"  1   "<<endl;
 	si_other.sin_family = AF_INET;
 	si_other.sin_port = htons(nodeToPort[destNode]);
 	if (inet_aton("127.0,0,1", &si_other.sin_addr)!=0) {
 		cerr<<"inet_aton() failed\n";
 		exit(1);
 	}
-//	outfile<<"  2   "<<endl;
 
 
 	memcpy(buff+ sizeof(uint16_t)+ sizeof(int32_t), &NodeID, sizeof(int32_t)); //From who
-//	outfile<<"  3  "<<endl;
 	if (sendto(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, slen)==-1)
 	{
 		cerr << "UDP forwarding send fail"<<endl;
 		exit(1);
 	}
-//	outfile<<"  4   "<<endl;
 	return 0;
 }
 
@@ -539,30 +539,6 @@ char* ReceiveFromOneUDPTable(int fdUDP, vector<vector<int>>& connectionTable, in
 
 
 
-int receiveFromAllNeighbors(int fdUDP){
-
-};
-
-
-
-void LSP(vector<vector<int> >& neighborTable,vector<vector<int> >& connectionTable, map<int,int>& nodeToPort ){
-
-}
-
-
-
-
-
-
-void breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& neighborTable, map<int,int>& nodeToPort){
-
-}
-
-
-
-
-
-
 
 
 void *waitMsg(void* p){
@@ -668,8 +644,7 @@ int main() {
 	receiveIDAndConnectionTable(fdTCP, NodeAddr, neighborTable);
 	string filename = "Router" + to_string(NodeAddr) + ".out";
 	outfile.open(filename);
-	outfile << "Test of neighbor table of " << NodeAddr << endl;
-	outfile << "SIZE:" << neighborTable.size() << endl;
+	outfile << "neighbor table of Router " << NodeAddr << endl;
 	for (int i = 0; i < neighborTable.size(); i++) {
 		outfile <<neighborTable[i][0] << "  " << neighborTable[i][1] << "  " << neighborTable[i][2] << "  " << neighborTable[i][3] << endl;
 	}
@@ -692,7 +667,7 @@ int main() {
 	c = receiveCommand(fdTCP);
 
 	if (c == 'S') {                                                // MEANS:  It is safe to try to reach neighbors.
-
+		outfile << "Receive \'safe\' from manager"<<endl;
 		//Here to do the ACK thing
 		for (int i = 0; i < neighborTable.size();i++)
 			sendToOneUDPCommand(fdUDP, neighborTable[i][1], 'I', NodeAddr);
@@ -884,23 +859,6 @@ int main() {
 		return 0;
 
 
-		//只是UDP send 的test
-		/*sendToOneUDPTable(fdUDP, NodeAddr, neighborTable, nodeToPort, NodeAddr);
-        ReceiveUDPTableFromOne(fdUDP, connectionTable);
-
-
-        outfile <<"  12   " <<endl;
-        for (int i = 0; i < connectionTable.size(); i++){
-            for (int j =0; j <connectionTable[i].size();j++)
-                outfile << connectionTable[i][j];
-            outfile<<endl;
-        }
-        outfile <<"  13   " <<endl;
-        */
-
-
-
-		//~~~~~~~~~~~~~
 
 	}
 
