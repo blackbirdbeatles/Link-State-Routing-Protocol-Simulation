@@ -29,6 +29,13 @@ struct routerInfo{
 	long sockfd;
 };
 
+struct connection{
+	int router1;
+	int router2;
+	int cost;
+	int portNum;
+};
+
 
 
 #endif
