@@ -14,8 +14,16 @@
 using namespace std;
 
 
-ofstream outfile;
 
+struct ArPth{
+	int32_t id;
+	int32_t sock;
+};
+
+ofstream outfile;
+int numberOfRouters;
+vector<int> checkACK, checkOtherID;
+map<int, int> nodeToPort;
 
 
 
@@ -194,14 +202,14 @@ int receiveIDAndConnectionTable(int fdTCP, int &ID, vector<vector<int>>& neighbo
 	}
 	uint16_t packetSize;
 	memcpy(&packetSize,buff, sizeof(uint16_t));
-	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int32_t)))/(4 * sizeof(int32_t));
+	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int32_t)+ sizeof(int)))/(4 * sizeof(int32_t));
 
 	//dataLength and NodeAddr
 	memcpy(&ID, buff + sizeof(uint16_t), sizeof(int32_t));
-
+	memcpy(&numberOfRouters,buff + sizeof(uint16_t)+ sizeof(int32_t), sizeof(int));
 
 	// extract neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t);
+	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t)+ sizeof(int);
 	for (int i = 0; i <neighborNum; i++){
 		int32_t source, dest, cost, port;
 		memcpy(&source,buff+offset, sizeof(int32_t) );
@@ -301,15 +309,64 @@ int connectToServer(){
 }
 
 
+void checkA(vector<int>& l){
+	int sum = 0;
+	for (int i = 0; i < checkACK.size(); i++){
+		if (checkACK[i]==0)
+			l.push_back(i);
+	}
+}
+
+void checkOther(vector<int>& l){
+	int sum = 0;
+	for (int i = 0; i < checkOtherID.size(); i++){
+		if (checkOtherID[i]==0)
+			l.push_back(i);
+	}
+}
 
 
 
 
+int sendToOneUDPCommand(int fdUDP, int32_t destNode, char flag, int32_t myID){
 
-int sendToOneUDPCommand(int fdUDP, int NodeID, char c ){
+	//sleep to avoid congestion
+	usleep(myID*1000);
+
+	//Here is to define si_other
+	int bufflen = 64;
+	struct sockaddr_in si_other;
+	socklen_t slen = sizeof(si_other);
+	memset((char *) &si_other, 0, sizeof(si_other));
+	si_other.sin_family = AF_INET;
+	si_other.sin_port = htons(nodeToPort[destNode]);
+//	cout << "PORT: " << nodeToPort[destNode] << endl;
+	if (inet_aton("127.0,0,1", &si_other.sin_addr)!=0) {
+		cerr<<"inet_aton() failed\n";
+		exit(1);
+	}
+	char* buff;
+	buff = (char*) malloc(bufflen);
+	memcpy(buff,&flag, sizeof(char));
+	memcpy(buff+ sizeof(char), &myID, sizeof(int32_t));
+//	cout << "Readytosend" << endl;
+	if (sendto(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, slen)==-1)
+	{
+		cerr << "UDP command send fail"<<endl;
+		perror("UDP SEND FAIL");
+
+		cerr<<"Current Router: "<<myID <<"  "<<destNode<<endl;
+		for (map<int,int>::iterator it=nodeToPort.begin(); it!=nodeToPort.end(); ++it)
+			cout<< it->first << " => " << it->second << '\n';
+		exit(1);
+	}
 
 }
+
 int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID){
+
+	//sleep to avoid congestion
+	sleep(NodeID/10);
 
 	//Here is to define si_other
 	int bufflen = 512;
@@ -327,28 +384,29 @@ int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTabl
 
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
-	uint16_t packetSize = sizeof(uint16_t)+ neighborNum * (4 * sizeof(uint16_t));
+	uint16_t packetSize = sizeof(uint16_t)+sizeof(int32_t)+ neighborNum * (4 * sizeof(int32_t));
 	buff = (char*) malloc(bufflen);
 	memcpy(buff,&packetSize, sizeof(uint16_t));
-
+	memcpy(buff+ sizeof(uint16_t), &NodeID, sizeof(int32_t));
 	// neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t);
+	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t);
 	for (int i = 0; i <neighborNum; i++){
-		int source = neighborTable[i][0];
-		int dest = neighborTable[i][1];
-		int cost = neighborTable[i][2];
-		int port = neighborTable[i][3];
-		memcpy(buff+offset, &source, sizeof(int) );
-		memcpy(buff+offset+ sizeof(int), &dest, sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*2, &cost, sizeof(int) );
-		memcpy(buff+offset+ sizeof(int)*3, &port, sizeof(int) );
-		offset += sizeof(int)*4;
+		cout << "From ID" << NodeID <<" offset now is: "<<offset<<endl;
+		int32_t source = neighborTable[i][0];
+		int32_t dest = neighborTable[i][1];
+		int32_t cost = neighborTable[i][2];
+		int32_t port = neighborTable[i][3];
+		memcpy(buff+offset, &source, sizeof(int32_t) );
+		memcpy(buff+offset+ sizeof(int32_t), &dest, sizeof(int32_t) );
+		memcpy(buff+offset+ sizeof(int32_t)*2, &cost, sizeof(int32_t) );
+		memcpy(buff+offset+ sizeof(int32_t)*3, &port, sizeof(int32_t) );
+		offset += sizeof(int32_t)*4;
+
 	}
 	buff[packetSize]=0;
 
-	//sleep to avoid congestion
-	sleep(1.5/NodeID);
-	if (sendto(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, slen)!=0)
+
+	if (sendto(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, slen)==-1)
 	{
 		cerr << "UDP send fail"<<endl;
 		exit(1);
@@ -356,39 +414,41 @@ int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTabl
 }
 
 
-int ReceiveUDPTableFromOne(int fdUDP, vector<vector<int>>& connectionTable){
-
+int ReceiveFromOneUDPTable(int fdUDP, vector<vector<int>>& connectionTable, int32_t& fromID){
+	outfile << "Here comes to receive an UDP packet from a direct neighbor" <<endl;
 	//Here is to define si_other
 	uint16_t packetSize;
 	int bufflen = 512;
 	struct sockaddr_in si_other;
 	socklen_t fromlen;
 	char* buff;
-	buff = (char*) malloc(bufflen);
+	buff = (char*) malloc(bufflen+1);
 
 	recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 	//
 	memcpy(&packetSize, buff, sizeof(uint16_t));
-	outfile << "packetSize is: "<< packetSize <<endl;
-	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int)))/(4 * sizeof(uint16_t));
-	outfile << "neighborNum is" << neighborNum <<endl;
+	memcpy(&fromID, buff+sizeof(uint16_t), sizeof(int32_t));
+	outfile << "packet Size is: "<< packetSize <<endl;
+	outfile << "From ID is: "<< fromID <<endl;
+	int neighborNum = (packetSize - (sizeof(uint16_t)+ sizeof(int32_t)))/(4 * sizeof(int32_t));
+	outfile << "neighborNum is " << neighborNum <<endl;
 
 
 	// extract neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(uint16_t);
+	uint16_t offset = sizeof(uint16_t)+ sizeof(int32_t);
 	for (int i = 0; i <neighborNum; i++){
-		int source, dest, cost, port;
-		memcpy(&source,buff+offset, sizeof(int) );
-		memcpy(&dest,buff+offset+ sizeof(int),  sizeof(int) );
-		memcpy(&cost,buff+offset+ sizeof(int)*2,  sizeof(int) );
-		memcpy(&port,buff+offset+ sizeof(int)*3,sizeof(int) );
-		offset += sizeof(int)*4;
+		int32_t source, dest, cost, port;
+		memcpy(&source,buff+offset, sizeof(int32_t) );
+		memcpy(&dest,buff+offset+ sizeof(int32_t),  sizeof(int32_t) );
+		memcpy(&cost,buff+offset+ sizeof(int32_t)*2,  sizeof(int32_t) );
+		memcpy(&port,buff+offset+ sizeof(int32_t)*3,sizeof(int32_t) );
+		offset += sizeof(int32_t)*4;
 		vector<int> tempt;
+		tempt.push_back(source);
+		tempt.push_back(dest);
+		tempt.push_back(cost);
+		tempt.push_back(port);
 		connectionTable.push_back(tempt);
-		connectionTable.at(i).push_back(source);
-		connectionTable.at(i).push_back(dest);
-		connectionTable.at(i).push_back(cost);
-		connectionTable.at(i).push_back(port);
 	}
 
 }
@@ -421,9 +481,6 @@ void breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& 
 }
 
 
-int sendToAllNeighbors(int fdUDP, string message){
-
-}
 
 
 void flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart){
@@ -457,6 +514,28 @@ void *waitMsg(void* p){
 }
 */
 
+void *checkFullStatus(void* p){
+
+	ArPth a = *(ArPth*)p;
+	int myID = a.id;
+	int fdUDP = a.sock;
+	while (1){
+		usleep(50000);
+		vector<int> emptyListA;
+		vector<int> emptyListI;
+		checkA(emptyListA);
+		checkOther(emptyListI);
+		if (emptyListA.empty() && emptyListI.empty())
+			break;
+		else{
+			for (int i=0; i <emptyListA.size(); i++)
+			{
+				sendToOneUDPCommand(fdUDP,emptyListA[i],'I',myID);
+
+			}
+		}
+	}
+}
 
 int main() {
 
@@ -489,12 +568,12 @@ int main() {
 	outfile << "Test of neighbor table of " << NodeAddr << endl;
 	outfile << "SIZE:" << neighborTable.size() << endl;
 	for (int i = 0; i < neighborTable.size(); i++) {
-		outfile << neighborTable[i][0] << " " << neighborTable[i][1] << " " << neighborTable[i][2] << endl;
+		outfile <<neighborTable[i][0] << "  " << neighborTable[i][1] << "  " << neighborTable[i][2] << "  " << neighborTable[i][3] << endl;
 	}
 
 
 	//PART OF(DIRECT) node to port table built and print out
-	map<int, int> nodeToPort;
+
 	outfile << "NodeToPort table print out: " <<endl;
 	buildNodeToPort(nodeToPort,neighborTable);
 	for (map<int,int>::iterator it=nodeToPort.begin(); it!=nodeToPort.end(); ++it)
@@ -510,9 +589,92 @@ int main() {
 
 	if (c == 'S') {                                                // MEANS:  It is safe to try to reach neighbors.
 
+		//Here to do the ACK thing
+		for (int i = 0; i < neighborTable.size();i++)
+			sendToOneUDPCommand(fdUDP, neighborTable[i][1], 'I', NodeAddr);
 
-		sendToAllNeighbors(fdUDP, "#" + to_string(portUDP));
-		receiveFromAllNeighbors(fdUDP);
+		//build up the recvfrom thing
+		uint16_t packetSize;
+		int bufflen = 512;
+		struct sockaddr_in si_other;
+		socklen_t fromlen;
+		char* buff;
+		buff = (char*) malloc(bufflen+1);
+
+		//initialize the checking ACK and checking ID tables to 0
+		for (int i = 0; i<numberOfRouters;i++) {
+			checkACK.push_back(1);
+			checkOtherID.push_back(1);
+		}
+		for (int i = 0; i < neighborTable.size(); i++){
+			checkACK[neighborTable[i][1]] = 0;
+			checkOtherID[neighborTable[i][1]] = 0;
+		}
+//		cout << "NODE: " << NodeAddr << endl;
+//		for (int i = 0; i<numberOfRouters;i++) {
+//			cout<<"ID "<<i<<" "<<checkOtherID[i]<<" "<<checkACK[i]<<endl;
+//		}
+		ArPth ar;
+		ar.sock=fdUDP;
+		ar.id = NodeAddr;
+		pthread_t checkFull;
+		pthread_create(&checkFull, NULL, &checkFullStatus, &ar);
+		//begin to listen
+		//Here need to packet explainanation:      												char + fromID
+		vector<int> emptyA, emptyI;
+		checkA(emptyA);
+		checkOther(emptyI);
+		while ((!emptyA.empty()) || (!emptyI.empty()) ){
+//			cout << "Received: " << NodeAddr << endl;
+			recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
+
+			int32_t fromID;
+			memcpy(&fromID, buff+1, sizeof(int32_t));
+
+			switch (*buff){
+				case 'A':
+					checkACK[fromID] = 1;
+					break;
+				case 'I':
+					checkOtherID[fromID]=1;
+					sendToOneUDPCommand(fdUDP, fromID, 'A', NodeAddr);
+					break;
+			}
+			emptyA.clear();
+			emptyI.clear();
+			checkA(emptyA);
+			checkOther(emptyI);
+		}
+		pthread_join(checkFull,NULL);
+
+
+
+
+
+
+
+
+/*
+
+
+
+
+
+		//LSP
+		for (int i = 0; i < neighborTable.size();i++)
+			sendToOneUDPTable(fdUDP, neighborTable[i][1], neighborTable,nodeToPort,neighborTable[i][0]);
+		for (int i = 0; i < neighborTable.size();i++){
+			int32_t fromID;
+			ReceiveFromOneUDPTable(fdUDP, connectionTable, fromID);
+			outfile << "Done the receiving UDP table from node "<< fromID<<endl;
+			//print out the connectionTable get
+			for (int j=0; j<connectionTable.size(); j++){
+				outfile <<connectionTable[j][0] << "  " << connectionTable[j][1] << "  " << connectionTable[j][2] << "  " << connectionTable[j][3] << endl;
+			}
+		}
+
+
+
 		/*
 		sendCommand(fdTCP, 'C');
 		c = receiveCommand(fdTCP);
@@ -580,6 +742,7 @@ int main() {
 
 
 		//~~~~~~~~~~~~~
+
 	}
 
 

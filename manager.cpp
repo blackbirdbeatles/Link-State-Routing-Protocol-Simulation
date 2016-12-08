@@ -176,11 +176,11 @@ int sendIDAndConnectionTable(int fdTCP, int32_t ID, vector<vector<int>> neighbor
 	//dataLength and NodeAddr
 	int neighborNum = neighborTable.size();
 	outfile << "neighborNum: "<<neighborNum<<endl;
-	uint16_t packetSize = sizeof(uint16_t)+ sizeof(int32_t)+neighborNum * (4 * sizeof(int32_t));
+	uint16_t packetSize = sizeof(uint16_t)+ sizeof(int32_t)+ sizeof(int)+neighborNum * (4 * sizeof(int32_t));
 	outfile << "packSize: "<<packetSize<<" ID is: "<<ID<<endl;
 	memcpy(toSend,&packetSize, sizeof(uint16_t));
 	memcpy(toSend+ sizeof(uint16_t),&ID, sizeof(int32_t));
-
+	memcpy(toSend+ sizeof(uint16_t)+ sizeof(int32_t), &numberOfRouters, sizeof(int));
 
 	uint16_t pi;
 	int32_t pd;
@@ -190,7 +190,7 @@ int sendIDAndConnectionTable(int fdTCP, int32_t ID, vector<vector<int>> neighbor
 	outfile <<"ID into toSend is: "<<pd<<endl;
 
 	// neighborNum groups of "neighbor ,cost, port"
-	uint16_t offset = sizeof(int16_t)+ sizeof(int32_t);
+	uint16_t offset = sizeof(int16_t)+ sizeof(int32_t)+ sizeof(int);
 	for (int i = 0; i <neighborNum; i++){
 		int32_t source = neighborTable[i][0];
 		int32_t dest = neighborTable[i][1];
