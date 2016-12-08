@@ -584,7 +584,7 @@ void *waitMsg(void* p){
 	socklen_t slen = sizeof(si_other);
 	memset((char *) &si_other, 0, sizeof(si_other));
 	si_other.sin_family = AF_INET;
-	outfile << "Port: " << NodeID << endl;
+//	outfile << "Port: " << NodeID << endl;
 	si_other.sin_port = htons(nodeToPort[NodeID]);
 	if (inet_aton("127.0,0,1", &si_other.sin_addr)!=0) {
 		cerr<<"inet_aton() failed\n";
@@ -833,7 +833,6 @@ int main() {
 
 			recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 			while (*buff!='E') {
-				outfile << *buff << endl;
 				if (*buff=='T') {
 					int source;
 					int dest;

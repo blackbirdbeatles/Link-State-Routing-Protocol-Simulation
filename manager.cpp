@@ -276,6 +276,7 @@ int runServer(){
 	}
 
 	int count = 0;
+	//collect the port number
 	while(count < numberOfRouters) {
 		int new_fd;
 		sin_size = sizeof their_addr;
@@ -330,7 +331,6 @@ int runServer(){
 		for (int i = 0; i < numberOfRouters; i++) {
 			int fdTCP = (routers[i]).sockfd;
 			int32_t nodeID = (routers[i]).routerID;
-			int32_t portUDP = (routers[i]).portUDP;
 			sendIDAndConnectionTable(fdTCP, nodeID, neighborTableSet[nodeID]);
 			char c = receiveCommand(fdTCP);
 			if (c == 'R') {
@@ -359,7 +359,7 @@ int runServer(){
 		for (int i=0; i < routingCommands.size();i++){
 			sendTest(routers[routingCommands[i][0]].sockfd, routingCommands[i][0],routingCommands[i][1]);
 //			outfile << "Sent test from " << routingCommands[i][0] << " to " << routingCommands[i][1] << endl;
-			sleep(1);
+			usleep(500000);
 		}
 		for (int i=0; i < routers.size(); i++){
 			char c = 'E';
@@ -383,7 +383,7 @@ void * waitForConnections(void* a){
 
 int main(int argc, char *argv[]){
 	if (argc == 2) {
-		outfile.open("manager.txt");
+		outfile.open("manager.out");
 		outfile<<"Manager output."<<endl;
 
 		ifstream inFile(argv[1]);
