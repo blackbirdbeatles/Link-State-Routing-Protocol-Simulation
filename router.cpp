@@ -119,7 +119,11 @@ int buildSPT() {
 */
 
 
-
+void buildNodeToPort(map<int, int>& nodeToPort,vector<vector<int>>& neighborTable ){
+	for (int i = 0; i < neighborTable.size(); i++) {
+		nodeToPort[neighborTable[i][1]] = neighborTable[i][3];
+	}
+}
 
 
 void sendPortNum(uint32_t the_fd, uint32_t port){
@@ -144,7 +148,6 @@ void sendCommand(int the_fd, char c){
 	memcpy(toSend, &sizeOfPacket,2);
 	memcpy(toSend + 2, &c, 1);
 	toSend[sizeOfPacket] = 0;
-	outfile<<"The Command we should send is "<<*(toSend+2)<<endl;
 	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
@@ -490,11 +493,12 @@ int main() {
 	}
 
 
-
-
+	//PART OF(DIRECT) node to port table built and print out
 	map<int, int> nodeToPort;
-	//buildNodeToPort(nodeToPort);
-
+	outfile << "NodeToPort table print out: " <<endl;
+	buildNodeToPort(nodeToPort,neighborTable);
+	for (map<int,int>::iterator it=nodeToPort.begin(); it!=nodeToPort.end(); ++it)
+		outfile << it->first << " => " << it->second << '\n';
 
 
 
@@ -506,10 +510,10 @@ int main() {
 
 	if (c == 'S') {                                                // MEANS:  It is safe to try to reach neighbors.
 
-		/*
+
 		sendToAllNeighbors(fdUDP, "#" + to_string(portUDP));
 		receiveFromAllNeighbors(fdUDP);
-
+		/*
 		sendCommand(fdTCP, 'C');
 		c = receiveCommand(fdTCP);
 		if (message == 'U'){
@@ -553,12 +557,12 @@ int main() {
 		cerr << "Error: The following message expected: safe!" <<endl;
 		return -1;
 	}
-		 */
+
 		outfile << "Yes! I receive the command S" << endl;
 		outfile.close();
 		return 0;
 
-
+	*/
 		//只是UDP send 的test
 		/*sendToOneUDPTable(fdUDP, NodeAddr, neighborTable, nodeToPort, NodeAddr);
         ReceiveUDPTableFromOne(fdUDP, connectionTable);
