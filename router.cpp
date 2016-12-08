@@ -3,6 +3,7 @@
 int portNum;
 int routerID;
 int managerfd;
+vector<connection> myNeighbors;
 
 struct ResultUPDCreation{
 	int port;
@@ -23,19 +24,51 @@ void sendPortNum(int the_fd, long num){
 	}
 }
 
-void recieveID(int the_fd){
-	char buff[2];
-
-	if((recv(the_fd, buff, sizeof buff, 0)) == -1){
-			cerr << "recv error" << endl;
-			exit(1);
+void unpackRouterInfo(string buffer){
+	istringstream iss(buffer);
+	string idString;
+	getline(iss, idString);
+	routerID = atoi(idString.c_str());
+	
+	while(1){
+		string currLine;
+		getline(iss, currLine);
+		if(currLine.compare("-1") == 0){
+			break;
 		}
-		
-		short ID;
-		memcpy(&ID, buff, 2);
-		routerID = ID;
+		stringstream lineStream(currLine);
+		connection current;
+		lineStream >> current.router1;
+		lineStream >> current.router2;
+		lineStream >> current.cost;
+		lineStream >> current.portNum;
+	}
+}
 
-		cout << "My ID: " << ID << endl;
+void recieveID(int the_fd){
+	char buff[1000];
+
+	if((recv(the_fd, buff, 1000, 0)) == -1){
+		//cerr << "recv error" << endl;
+		perror("recv error");
+		exit(1);
+	}
+	
+	string buffer(buff);
+	
+	cout << "Router Side: " << buffer << endl;
+	
+	unpackRouterInfo(buffer);
+	
+	string testout = "";
+	testout.append("My ID: " + to_string(routerID) + "\n");
+	testout.append("My connection table\n");
+	for(int i=0; i<myNeighbors.size(); i++){
+		testout.append(to_string(myNeighbors[i].router1) + " " + to_string(myNeighbors[i].router2) + "  " + to_string(myNeighbors[i].cost) + " " + to_string(myNeighbors[i].portNum) + "\n");
+	}
+	
+	cout << testout << endl;
+	
 }
 
 ResultUPDCreation createUDPConnection(){
@@ -119,7 +152,9 @@ int connectToServer(){
 	
 	sendPortNum(sockfd, (long)portNum);
 	
-	recieveID(sockfd);
+	//recieveID(sockfd);
+	
+	
 
 	return 0;
 }
@@ -131,7 +166,25 @@ int main(int argc, char* argv[]){
 	
 	//cout << "I am child number " << 0 << endl;
 	
+	cout << "inside router main" << endl;
+	
 	connectToServer();
+	
+	recieveID(managerfd);
+	
+	//stringstream iss;
+	
+	/*if(routerID == 0){
+	
+		cout << "My Neighbor Table: " << routerID << endl;
+		
+		for(unsigned int i=0; i<neighborTable.size(); i++){
+			for(unsigned int j=0; j<neighborTable.at(i).size(); j++){
+				cout << neighborTable.at(i).at(j) << " ";
+			}
+			cout << endl;
+		}
+	}*/
 	
 	/*createUDPConnection();
 	
