@@ -152,14 +152,14 @@ void sendCommand(int the_fd, char c){
 }
 char receiveCommand(int the_fd){
 	char* buff;
-	long packageSize = sizeof(char)+sizeof(char);
+	long packageSize = sizeof(uint16_t)+sizeof(char);
 	buff = (char*)malloc(packageSize+1);
 	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
 		cerr << "recv error" << endl;
 		exit(1);
 	}
 	buff[packageSize] = 0;
-	return *(buff+sizeof(char));
+	return *(buff+sizeof(uint16_t));
 }
 
 
@@ -500,10 +500,10 @@ int main() {
 
 	map<int, int> flowChart;
 
-
 	sendCommand(fdTCP, 'R');
 	char c;
 	c = receiveCommand(fdTCP);
+
 	if (c == 'S') {                                                // MEANS:  It is safe to try to reach neighbors.
 
 		/*

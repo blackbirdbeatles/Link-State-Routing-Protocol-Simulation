@@ -4,16 +4,17 @@ vector<vector<int>> connectionTable;
 vector<vector<int>> routingCommands;
 int numberOfRouters;
 const char* ip;
-int sockfd, new_fd;
 vector<routerInfo> routers;
+int sockfd;
 ofstream outfile;
 void sigHandler(int signum){
+
 	outfile << "Interrupt signal (" << signum << ") received.\n";
-
+	for (int i = 0; i < numberOfRouters;i++) {
+		close(routers[i].sockfd);
+		exit(signum);
+	}
 	close(sockfd);
-	close(new_fd);
-	exit(signum);
-
 }
 
 void readFile(ifstream& inFile){
@@ -119,14 +120,16 @@ void sendCommand(int the_fd, char c){
 
 char receiveCommand(int the_fd){
 	char* buff;
-	long packageSize = sizeof(char)+sizeof(char);
+	long packageSize = sizeof(uint16_t)+sizeof(char);
 	buff = (char*)malloc(packageSize+1);
 	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
 		cerr << "recv error" << endl;
 		exit(1);
 	}
 	buff[packageSize] = 0;
-	return *(buff+sizeof(char));
+
+	outfile << "In ReceiveCommand: " << *(buff+sizeof(uint16_t)) <<endl;
+	return *(buff+sizeof(uint16_t));
 }
 
 void sendTest(int the_fd, uint16_t source, uint16_t dest){
@@ -153,14 +156,14 @@ void buildNeighborTableSet(vector<vector<int>>& connectionTable, int RouterNum, 
 
 	for (int i=0; i <connectionTable.size(); i++){
 		vector<int> edge = connectionTable[i];
-		edge.push_back((routers[connectionTable[i][1]]).portUDP);
+		edge.push_back((routers[edge[1]]).portUDP);
 		(neighborTableSet[connectionTable[i][0]]).push_back(edge);
 		vector<int> reverseEdge = connectionTable[i];
 		int t;
 		t = reverseEdge[0];
 		reverseEdge[0] = reverseEdge[1];
 		reverseEdge[1] = t;
-		reverseEdge.push_back((routers[connectionTable[i][1]]).portUDP);
+		reverseEdge.push_back((routers[reverseEdge[1]]).portUDP);
 		(neighborTableSet[connectionTable[i][1]]).push_back(reverseEdge);
 	}
 }
@@ -228,7 +231,6 @@ int runServer(){
 	string res = inet_ntoa(*hostIP);
 
 	struct addrinfo hints, *serverInfo, *p;
-	//int sockfd, new_fd;
 	struct sockaddr_storage their_addr;
 	socklen_t sin_size;
 	int yes = 1;
@@ -277,6 +279,7 @@ int runServer(){
 
 	int count = 0;
 	while(count < numberOfRouters) {
+		int new_fd;
 		sin_size = sizeof their_addr;
 		new_fd = accept(sockfd, (struct sockaddr *) &their_addr, &sin_size);
 		routerInfo currentRouter;
@@ -331,10 +334,10 @@ int runServer(){
 			int32_t nodeID = (routers[i]).routerID;
 			int32_t portUDP = (routers[i]).portUDP;
 			sendIDAndConnectionTable(fdTCP, nodeID, neighborTableSet[nodeID]);
-			char c = receiveCommand(new_fd);
+			char c = receiveCommand(fdTCP);
 			if (c == 'R') {
 				outfile << "Got ready from router " << nodeID << endl;
-				sendCommand(new_fd, 'S');
+				sendCommand(fdTCP, 'S');
 			}
 		}
 
