@@ -132,18 +132,16 @@ char receiveCommand(int the_fd){
 	return *(buff+sizeof(uint16_t));
 }
 
-void sendTest(int the_fd, uint16_t source, uint16_t dest){
-	outfile<<"what is the original one?  "<<(uint16_t)source<<"  "<<(uint16_t)dest<<endl;
-	uint16_t sizeOfPacket = sizeof(uint16_t)+ sizeof(uint16_t) +sizeof(uint16_t);
+void sendTest(int the_fd, int source, int dest){
 	//char* toSend;
 	//toSend = (char*)malloc(sizeOfPacket + 1);
-	char toSend[7];
-	memcpy(toSend, &sizeOfPacket,sizeof(uint16_t));
-	memcpy(toSend + sizeof(uint16_t), &source, sizeof(uint16_t));
-	memcpy(toSend + sizeof(uint16_t)*2, &dest, sizeof(uint16_t));
-	toSend[sizeOfPacket] = 0;
-	outfile << "Send Test " << *(uint16_t*)toSend << " "<<*(uint16_t*)(toSend+2) << " "<<*(uint16_t*)(toSend+4) <<endl;
-	if(send(the_fd, toSend, sizeOfPacket+1, 0) == -1){
+	char flag='T';
+	char toSend[9];
+	memcpy(toSend, &flag, sizeof(char));
+	memcpy(toSend + sizeof(char), &source, sizeof(int));
+	memcpy(toSend + sizeof(char)+sizeof(int), &dest, sizeof(int));
+	outfile << "Send Test " << *(char*)toSend << " "<<*(int*)(toSend+1) << " "<<*(int*)(toSend+5) <<endl;
+	if(send(the_fd, toSend, 9, 0) == -1){
 		cerr << "send error" << endl;
 		exit(-1);
 	}
@@ -358,6 +356,21 @@ int runServer(){
 				cout << "unexpected command!" <<endl;
 			}
 		}
+		for (int i=0; i < routingCommands.size();i++){
+			sendTest(routers[routingCommands[i][0]].sockfd, routingCommands[i][0],routingCommands[i][1]);
+//			outfile << "Sent test from " << routingCommands[i][0] << " to " << routingCommands[i][1] << endl;
+			sleep(1);
+		}
+		for (int i=0; i < routers.size(); i++){
+			char c = 'E';
+			send(routers[i].sockfd,&c,1,0 );
+		}
+
+		outfile << "Sent quit messages to routers. Manager quitting." << endl;
+
+
+
+
 
 	return 0;
 }

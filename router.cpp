@@ -212,22 +212,7 @@ char receiveCommand(int the_fd){
 }
 
 
-void receiveTest(int the_fd, uint16_t& source, uint16_t& dest){
-	char* buff;
-	uint16_t packageSize = sizeof(uint16_t)+sizeof(uint16_t)+sizeof(uint16_t);
-	buff = (char*)malloc(packageSize+1);
-	if((recv(the_fd, buff, packageSize+1, 0)) == -1){
-		cerr << "receiveTest error and s and d is: "<< source<<" "<< dest<<endl;
-		exit(1);
-	}
-	buff[packageSize] = 0;
 
-	//Give the source and dest
-	memcpy(&source,buff+ sizeof(uint16_t), sizeof(uint16_t));
-	memcpy(&dest, buff+sizeof(uint16_t)*2, sizeof(uint16_t));
-	outfile << "The test received from manager is   source: "<< source<<"   dest:  "<<dest<<endl;
-
-}
 
 int receiveIDAndConnectionTable(int fdTCP, int &ID, vector<vector<int>>& neighborTable){
 
@@ -444,7 +429,7 @@ int sendBuffTo(int fdUDP,  int destNode, char* buff,int NodeID){
 
 int sendToOneUDPTable(int fdUDP, int destNode, vector<vector<int>>& neighborTable, map<int,int>& nodeToPort, int NodeID, int fromID){
 	//sleep to avoid congestion
-	sleep(NodeID/10);
+	usleep(NodeID*1000);
 
 	//Here is to define si_other
 	int bufflen = 512;
@@ -506,6 +491,10 @@ char* ReceiveFromOneUDPTable(int fdUDP, vector<vector<int>>& connectionTable, in
 	recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 	//
 	memcpy(&packetSize, buff, sizeof(uint16_t));
+	if (packetSize>512){
+		r =2 ;
+		return  buff;
+	}
 	memcpy(&sourceID, buff+ sizeof(uint16_t), sizeof(int32_t));
 	memcpy(&fromID, buff+sizeof(uint16_t)+ sizeof(int32_t), sizeof(int32_t));
 	if (checkSource[sourceID] == 1) {
@@ -575,31 +564,58 @@ void breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& 
 
 
 
-/*
+
 void *waitMsg(void* p){
-	string message;
+
 	int fdTCP = (*(Args*)p).arg1;
 	int fdUDP = (*(Args*)p).arg2;
-	int NodeID = fdUDP = (*(Args*)p).arg3;
-
-	message = "";
-	uint16_t source,dest;
-	//其实这里需要一个模糊的消息接受
-	receiveTest(fdTCP, source, dest);
-	while (message != "-1"){
-		sendToOneUDPTable();
+	int NodeID =(*(Args*)p).arg3;
 
 
+	char flag;
+	char* buff = (char*)malloc(9);
 
-
-
-
-		message = "";
-		receiveTest(fdTCP, source, dest);
+	if((recv(fdTCP, buff, 9, 0)) == -1){
+		cerr << "waitMsg receive error "<<endl;
+		exit(1);
 	}
-	sendToOneUDPCommand(fdUDP, NodeID,'E');
+
+	struct sockaddr_in si_other;
+	socklen_t slen = sizeof(si_other);
+	memset((char *) &si_other, 0, sizeof(si_other));
+	si_other.sin_family = AF_INET;
+	outfile << "Port: " << NodeID << endl;
+	si_other.sin_port = htons(nodeToPort[NodeID]);
+	if (inet_aton("127.0,0,1", &si_other.sin_addr)!=0) {
+		cerr<<"inet_aton() failed\n";
+		exit(1);
+	}
+
+	//Give the source and dest
+	memcpy(&flag,buff, sizeof(char));
+	while (flag!='E') {
+			int source;
+			int dest;
+			memcpy(&source,buff+ sizeof(char), sizeof(int32_t));
+			memcpy(&dest, buff+ sizeof(char)+sizeof(int32_t), sizeof(int32_t));
+
+//			outfile << "Before send: " << *buff << endl;
+				if (sendto(fdUDP, buff, 9, 0, (struct sockaddr*)&si_other, slen) == -1)
+					perror("Error sending message");
+
+		if((recv(fdTCP, buff, 9, 0)) == -1){
+			cerr << "waitMsg receive error "<<endl;
+			exit(1);
+		}
+		memcpy(&flag,buff, sizeof(char));
+	}
+	flag = 'E';
+	memcpy(buff,&flag, sizeof(char) );
+	if (sendto(fdUDP, buff, 9, 0, (struct sockaddr*)&si_other, slen) == -1)
+		perror("Error sending message");
+	return 0;
 }
-*/
+
 
 void *checkFullStatus(void* p){
 
@@ -663,6 +679,7 @@ int main() {
 
 	outfile << "NodeToPort table print out: " <<endl;
 	buildNodeToPort(nodeToPort,neighborTable);
+	nodeToPort[NodeAddr] = portUDP;
 	for (map<int,int>::iterator it=nodeToPort.begin(); it!=nodeToPort.end(); ++it)
 		outfile << it->first << " => " << it->second << '\n';
 
@@ -765,8 +782,9 @@ int main() {
 
 				}
 				else
+					if (r==-1)
 					//discard
-					outfile << "Discard table from Router " << fromID << endl;
+						outfile << "Discard table from Router " << fromID << endl;
 				emptyS.clear();
 				checkS(emptyS);
 			}
@@ -774,7 +792,7 @@ int main() {
 			//print out the connectionTable
 			for (int j = 0; j < connectionTable.size(); j++) {
 				outfile << connectionTable[j][0] << "  " << connectionTable[j][1] << "  " <<
-				connectionTable[j][2] << "  " << connectionTable[j][3] << endl;
+				connectionTable[j][2] <<  endl;
 			}
 			vector<vector<int>> spt = buildSPT(neighborTable,connectionTable,NodeAddr);
 
@@ -787,53 +805,80 @@ int main() {
 			outfile<<"Forwarding table: "<<endl;
 			for (int i= 0; i <numberOfRouters;i++)
 				outfile <<"Router: "<<i<<"   Next Hop: "<<ft[i]<<endl;
-		}
 
-/*
 
-		/*
-
-		if (message == 'U'){
-
-			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			//BuildSPT(connectionTable);
-			flowChartBuild(connectionTable, flowChart);
-			//Here we begin to test our flowChart
-			Args A;
-			A.arg1 = fdTCP;
-			A.arg2 = fdUDP;
-			A.arg3 = NodeAddr;
+			//Begin to receive test
+			Args* A= (Args*)malloc(sizeof(Args));
+			(*A).arg1 = fdTCP;
+			(*A).arg2 = fdUDP;
+			(*A).arg3 = NodeAddr;
 			pthread_t listenTCP;
-			//~~~~~~
-			pthread_create(&listenTCP, NULL, &waitMsg, &A);
-			pthread_join(listenTCP, NULL);
-			message = "";
+			pthread_create(&listenTCP, NULL, &waitMsg, A);
+			pthread_detach(listenTCP);
 			int sourceNode = -1;
-			receiveFromOneUDP(fdUDP, sourceNode, message);
-			while (message != 'E'){
-				int source, dest;
-				breakTestMessage(message, source, dest);
-				if (dest == NodeAddr)
-				{
-					routerPrint("I'm destination. I've already got the packet.");
-					sendToOneUDP(fdUDP,NodeAddr,'E');
+			int dest;
+
+
+
+			//build up the recvfrom thing
+			uint16_t packetSize;
+			int bufflen = 512;
+			struct sockaddr_in si_other;
+			socklen_t fromlen;
+			char* buff;
+			buff = (char*) malloc(bufflen+1);
+
+
+			//记得test前要加一个字母'T'
+
+			recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
+			while (*buff!='E') {
+				outfile << *buff << endl;
+				if (*buff=='T') {
+					int source;
+					int dest;
+					memcpy(&source, buff+1, sizeof(int));
+					memcpy(&dest, buff+1+ sizeof(int), sizeof(int));
+					if (dest == NodeAddr) {
+						outfile << "I'm dest. Received packet from " << source << endl;
+					}
+					else {
+
+						struct sockaddr_in si_other;
+						socklen_t slen = sizeof(si_other);
+						memset((char *) &si_other, 0, sizeof(si_other));
+						si_other.sin_family = AF_INET;
+						si_other.sin_port = htons(nodeToPort[ft[dest]]);
+						if (inet_aton("127.0,0,1", &si_other.sin_addr)!=0) {
+							cerr<<"inet_aton() failed\n";
+							exit(1);
+						}
+
+						outfile << "Forward packet from "<<source<<" to dest "<<dest<<endl;
+						sendto(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, slen);
+					}
+
+
 				}
-				else{
-					routerPrint("I will forward this to " + to_string(flowChart[dest])+" now");
-					sendToOneUDP(fdUDP,flowChart[dest],message);
-				}
-				message = "";
-				receiveFromOneUDP(fdUDP, sourceNode, message);
+				recvfrom(fdUDP, buff, bufflen, 0, (struct sockaddr*)&si_other, &fromlen);
 			}
+
+			outfile << "Router received quit message, quitting." << endl;
+
+
+
+
+
+
+
+
+
 			return 0;
 		};
 
 
 	}
-	else{
-		cerr << "Error: The following message expected: safe!" <<endl;
-		return -1;
-	}
+
 
 		outfile << "Yes! I receive the command S" << endl;
 		outfile.close();
@@ -860,7 +905,8 @@ int main() {
 
 	}
 
-}
+
+
 
 
 
