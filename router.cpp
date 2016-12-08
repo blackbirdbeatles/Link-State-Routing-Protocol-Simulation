@@ -27,7 +27,7 @@ map<int, int> nodeToPort;
 vector<int> checkSource;
 
 
-vector<vector<int>> buildSPT(const vector<vector<int>>& neighborTable, vector<vector<int>> connectionTable ) {
+vector<vector<int>> buildSPT(const vector<vector<int>>& neighborTable, vector<vector<int>> connectionTable, int routerID) {
 	//SPT will have the shortest path from A to B via C as <A, B, C>
 	outfile << "Constructing Shortest Path Tree..." << endl;
 	vector<vector<int>> availablePaths = neighborTable;
@@ -572,9 +572,7 @@ void breakTheMessageReceived(string message,int& NodeAddr,vector<vector<int> >& 
 
 
 
-void flowChartBuild(vector<vector<int>>& connectionTable, map<int, int>& flowChart){
 
-}
 
 
 /*
@@ -670,7 +668,7 @@ int main() {
 
 
 
-	map<int, int> flowChart;
+	vector<int> ft;
 
 	sendCommand(fdTCP, 'R');
 	char c;
@@ -735,27 +733,28 @@ int main() {
 		pthread_join(checkFull,NULL);
 		sendCommand(fdTCP, 'C');     //"Complete!"
 		c = receiveCommand(fdTCP);
-		if (c == 'U'){				//"Network is up now!"
+		if (c == 'U') {                //"Network is up now!"
 
 			//initialize source neighbor whose table already get
-			for (int i = 0; i<numberOfRouters;i++)
+			for (int i = 0; i < numberOfRouters; i++)
 				checkSource.push_back(0);
-			checkSource[NodeAddr]=1;
+			checkSource[NodeAddr] = 1;
 
 
 
 			//Perform the flooding algorithm
-			for (int i = 0; i < neighborTable.size();i++)
-				sendToOneUDPTable(fdUDP, neighborTable[i][1], neighborTable,nodeToPort,neighborTable[i][0],neighborTable[i][0]);
+			for (int i = 0; i < neighborTable.size(); i++)
+				sendToOneUDPTable(fdUDP, neighborTable[i][1], neighborTable, nodeToPort, neighborTable[i][0],
+								  neighborTable[i][0]);
 			vector<int> emptyS;
 			checkS(emptyS);
 			connectionTable = neighborTable;
-			while(!emptyS.empty()){
+			while (!emptyS.empty()) {
 				int32_t fromID;
-				char* pbuff;
+				char *pbuff;
 				int r;
-				pbuff = ReceiveFromOneUDPTable(fdUDP, connectionTable, fromID,r);
-				if (r==0) {
+				pbuff = ReceiveFromOneUDPTable(fdUDP, connectionTable, fromID, r);
+				if (r == 0) {
 					//forwarding
 
 					for (int j = 0; j < neighborTable.size(); j++) {
@@ -767,42 +766,35 @@ int main() {
 				}
 				else
 					//discard
-					outfile << "Discard table from Router " << fromID <<endl;
+					outfile << "Discard table from Router " << fromID << endl;
 				emptyS.clear();
 				checkS(emptyS);
 			}
-			outfile<<"For router "<<NodeAddr<<", connection size = "<< connectionTable.size()<<endl;
+			outfile << "For router " << NodeAddr << ", connection size = " << connectionTable.size() << endl;
 			//print out the connectionTable
 			for (int j = 0; j < connectionTable.size(); j++) {
 				outfile << connectionTable[j][0] << "  " << connectionTable[j][1] << "  " <<
 				connectionTable[j][2] << "  " << connectionTable[j][3] << endl;
 			}
+			vector<vector<int>> spt = buildSPT(neighborTable,connectionTable,NodeAddr);
+
+			//build forwarding table:
+			ft.resize(numberOfRouters);
+			for (int i=0; i < spt.size(); i++){
+				ft[spt[i][0]] = spt[i][1];
+			}
+			ft[NodeAddr] = -1;
+			outfile<<"Forwarding table: "<<endl;
+			for (int i= 0; i <numberOfRouters;i++)
+				outfile <<"Router: "<<i<<"   Next Hop: "<<ft[i]<<endl;
 		}
-		else
-			cout << "unexpected message" <<endl;
-
-
-
-
-
-
-
 
 /*
 
-
-
-
-
-
-
-
-
 		/*
-		sendCommand(fdTCP, 'C');
-		c = receiveCommand(fdTCP);
+
 		if (message == 'U'){
-			LSP(neighborTable, connectionTable,nodeToPort);
+
 			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			//BuildSPT(connectionTable);
 			flowChartBuild(connectionTable, flowChart);
